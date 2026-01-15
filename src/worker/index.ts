@@ -116,7 +116,7 @@ api.post("/guests/bulk", async (c) => {
     const id = generateId();
     guests.push({ id, name: name.trim(), color, table_id: null, table_position: null });
     return c.env.DB.prepare(
-      "INSERT INTO guests (id, name, color, table_id) VALUES (?, ?, ?, NULL)"
+      "INSERT INTO guests (id, name, color, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
     ).bind(id, name.trim(), color);
   });
 
