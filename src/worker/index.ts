@@ -15,6 +15,7 @@ interface Guest {
 interface Table {
   id: string;
   name: string;
+  max_seats: number;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -123,21 +124,37 @@ api.delete("/guests/:id", async (c) => {
 // Get all tables
 api.get("/tables", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name FROM tables ORDER BY name"
+    "SELECT id, name, max_seats FROM tables ORDER BY name"
   ).all<Table>();
   return c.json(results);
 });
 
 // Create a new table
 api.post("/tables", async (c) => {
-  const { name } = await c.req.json<{ name: string }>();
+  const { name, maxSeats = 16 } = await c.req.json<{ name: string; maxSeats?: number }>();
   const id = generateId();
 
-  await c.env.DB.prepare("INSERT INTO tables (id, name) VALUES (?, ?)")
-    .bind(id, name)
+  await c.env.DB.prepare("INSERT INTO tables (id, name, max_seats) VALUES (?, ?, ?)")
+    .bind(id, name, maxSeats)
     .run();
 
-  return c.json({ id, name }, 201);
+  return c.json({ id, name, max_seats: maxSeats }, 201);
+});
+
+// Update a table's max_seats
+api.put("/tables/:id", async (c) => {
+  const tableId = c.req.param("id");
+  const { maxSeats } = await c.req.json<{ maxSeats: number }>();
+
+  if (!maxSeats || maxSeats < 1) {
+    return c.json({ error: "maxSeats must be at least 1" }, 400);
+  }
+
+  await c.env.DB.prepare("UPDATE tables SET max_seats = ? WHERE id = ?")
+    .bind(maxSeats, tableId)
+    .run();
+
+  return c.json({ success: true });
 });
 
 // Delete a table (unassigns all guests)

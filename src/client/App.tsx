@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, GripVertical, Search, Trash2, Settings, X, UserPlus } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus } from "lucide-react";
 
 // Default configuration constants
 const DEFAULT_MAX_GUESTS_PER_TABLE = 16;
@@ -14,6 +14,7 @@ interface Guest {
 interface Table {
   id: string;
   name: string;
+  max_seats: number;
   guests: Guest[];
 }
 
@@ -36,10 +37,9 @@ const App = () => {
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
   
-  // Configurable seat count
-  const [maxGuestsPerTable, setMaxGuestsPerTable] = useState(DEFAULT_MAX_GUESTS_PER_TABLE);
-  const [showSettings, setShowSettings] = useState(false);
-  const [tempMaxGuests, setTempMaxGuests] = useState(DEFAULT_MAX_GUESTS_PER_TABLE.toString());
+  // Per-table seat configuration
+  const [editingTableId, setEditingTableId] = useState<string | null>(null);
+  const [tempMaxSeats, setTempMaxSeats] = useState("");
   
   // Edit guest name state
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
@@ -78,12 +78,12 @@ const App = () => {
         throw new Error("Failed to fetch data");
       }
 
-      const guestsData = await guestsRes.json();
-      const tablesData = await tablesRes.json();
+      const guestsData: Guest[] = await guestsRes.json();
+      const tablesData: Array<{ id: string; name: string; max_seats: number }> = await tablesRes.json();
 
       setGuests(guestsData.filter((g: Guest) => !g.table_id));
       setTables(
-        tablesData.map((t: { id: string; name: string }) => ({
+        tablesData.map((t: { id: string; name: string; max_seats: number }) => ({
           ...t,
           guests: guestsData.filter((g: Guest) => g.table_id === t.id),
         }))
@@ -113,7 +113,7 @@ const App = () => {
 
       if (!response.ok) throw new Error("Failed to add guest");
 
-      const newGuest = await response.json();
+      const newGuest: Guest = await response.json();
       setGuests((prev) => [newGuest, ...prev]);
       setNewGuestName("");
     } catch (err) {
@@ -127,12 +127,12 @@ const App = () => {
       const response = await fetch("/api/tables", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newTableName }),
+        body: JSON.stringify({ name: newTableName, maxSeats: DEFAULT_MAX_GUESTS_PER_TABLE }),
       });
 
       if (!response.ok) throw new Error("Failed to add table");
 
-      const newTable = await response.json();
+      const newTable: { id: string; name: string; max_seats: number } = await response.json();
       setTables((prev) => [...prev, { ...newTable, guests: [] }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add table");
@@ -231,7 +231,7 @@ const App = () => {
 
       if (!response.ok) throw new Error("Failed to bulk add guests");
 
-      const newGuests = await response.json();
+      const newGuests: Guest[] = await response.json();
       setGuests((prev) => [...newGuests, ...prev]);
       showNotification(`Added ${newGuests.length} guests`);
       setShowBulkAddModal(false);
@@ -241,14 +241,31 @@ const App = () => {
     }
   };
 
-  // Settings
-  const saveSettings = () => {
-    const newMax = parseInt(tempMaxGuests, 10);
-    if (!isNaN(newMax) && newMax > 0) {
-      setMaxGuestsPerTable(newMax);
-      showNotification(`Max guests per table set to ${newMax}`);
+  // Update table max seats
+  const updateTableMaxSeats = async (tableId: string) => {
+    const newMax = parseInt(tempMaxSeats, 10);
+    if (isNaN(newMax) || newMax < 1) {
+      showNotification("Invalid seat count");
+      return;
     }
-    setShowSettings(false);
+
+    try {
+      const response = await fetch(`/api/tables/${tableId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ maxSeats: newMax }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update table");
+
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, max_seats: newMax } : t))
+      );
+      showNotification(`Table capacity updated to ${newMax}`);
+      setEditingTableId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update table");
+    }
   };
 
   const primeDrag = (guestId: string, fromTableId: string | null) => {
@@ -295,8 +312,8 @@ const App = () => {
 
     if (toTableId !== null) {
       const targetTable = tables.find((t) => t.id === toTableId);
-      if (targetTable && targetTable.guests.length >= maxGuestsPerTable) {
-        showNotification(`This table is full! (Max ${maxGuestsPerTable} people)`);
+      if (targetTable && targetTable.guests.length >= targetTable.max_seats) {
+        showNotification(`This table is full! (Max ${targetTable.max_seats} people)`);
         return;
       }
     }
@@ -377,42 +394,7 @@ const App = () => {
         </div>
       )}
 
-      {/* Settings Modal */}
-      {showSettings && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-bold text-slate-800">Settings</h3>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="p-2 hover:bg-slate-100 rounded-lg"
-              >
-                <X size={20} />
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
-                  Max Guests Per Table
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={tempMaxGuests}
-                  onChange={(e) => setTempMaxGuests(e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-              <button
-                onClick={saveSettings}
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700"
-              >
-                Save Settings
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Bulk Add Modal */}
       {showBulkAddModal && (
@@ -483,16 +465,6 @@ const App = () => {
           </p>
         </div>
         <div className="flex gap-2">
-          <button
-            onClick={() => {
-              setTempMaxGuests(maxGuestsPerTable.toString());
-              setShowSettings(true);
-            }}
-            className="flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-semibold transition-all shadow-sm"
-            title="Settings"
-          >
-            <Settings size={20} />
-          </button>
           <button
             onClick={addTable}
             className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
@@ -643,24 +615,49 @@ const App = () => {
                     <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-300 ${
-                          table.guests.length >= maxGuestsPerTable
+                          table.guests.length >= table.max_seats
                             ? "bg-red-500"
                             : "bg-indigo-500"
                         }`}
                         style={{
-                          width: `${(table.guests.length / maxGuestsPerTable) * 100}%`,
+                          width: `${(table.guests.length / table.max_seats) * 100}%`,
                         }}
                       />
                     </div>
-                    <span
-                      className={`text-[10px] font-bold ${
-                        table.guests.length >= maxGuestsPerTable
-                          ? "text-red-500"
-                          : "text-slate-400"
-                      }`}
-                    >
-                      {table.guests.length}/{maxGuestsPerTable}
-                    </span>
+                    {editingTableId === table.id ? (
+                      <input
+                        type="number"
+                        min="1"
+                        value={tempMaxSeats}
+                        onChange={(e) => setTempMaxSeats(e.target.value)}
+                        onBlur={() => updateTableMaxSeats(table.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") {
+                            updateTableMaxSeats(table.id);
+                          } else if (e.key === "Escape") {
+                            setEditingTableId(null);
+                          }
+                        }}
+                        autoFocus
+                        className="w-12 text-[10px] font-bold text-slate-700 bg-white px-1 py-0.5 rounded border border-indigo-300 outline-none text-center"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span
+                        className={`text-[10px] font-bold cursor-pointer hover:text-indigo-600 ${
+                          table.guests.length >= table.max_seats
+                            ? "text-red-500"
+                            : "text-slate-400"
+                        }`}
+                        onClick={() => {
+                          setEditingTableId(table.id);
+                          setTempMaxSeats(table.max_seats.toString());
+                        }}
+                        title="Click to edit capacity"
+                      >
+                        {table.guests.length}/{table.max_seats}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button
