@@ -10,6 +10,7 @@ interface Guest {
   name: string;
   color: string;
   table_id: string | null;
+  table_position: number | null;
 }
 
 interface Table {
@@ -31,7 +32,7 @@ const api = new Hono<{ Bindings: Env }>();
 // Get all guests
 api.get("/guests", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, color, table_id FROM guests ORDER BY name"
+    "SELECT id, name, color, table_id, table_position FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
   ).all<Guest>();
   return c.json(results);
 });
@@ -47,7 +48,7 @@ api.post("/guests", async (c) => {
     .bind(id, name, color)
     .run();
 
-  return c.json({ id, name, color, table_id: null }, 201);
+  return c.json({ id, name, color, table_id: null, table_position: null }, 201);
 });
 
 // Move a guest to a table (or unassign)
@@ -55,8 +56,20 @@ api.put("/guests/:id/move", async (c) => {
   const guestId = c.req.param("id");
   const { tableId } = await c.req.json<{ tableId: string | null }>();
 
-  await c.env.DB.prepare("UPDATE guests SET table_id = ? WHERE id = ?")
-    .bind(tableId, guestId)
+  let tablePosition: number | null = null;
+  
+  if (tableId !== null) {
+    // Get the max position for this table
+    const { results } = await c.env.DB.prepare(
+      "SELECT MAX(table_position) as max_pos FROM guests WHERE table_id = ?"
+    ).bind(tableId).all<{ max_pos: number | null }>();
+    
+    const maxPos = results[0]?.max_pos;
+    tablePosition = maxPos !== null ? maxPos + 1 : 0;
+  }
+
+  await c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE id = ?")
+    .bind(tableId, tablePosition, guestId)
     .run();
 
   return c.json({ success: true });
@@ -101,9 +114,9 @@ api.post("/guests/bulk", async (c) => {
   // Use batch for better performance
   const statements = validNames.map((name) => {
     const id = generateId();
-    guests.push({ id, name: name.trim(), color, table_id: null });
+    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null });
     return c.env.DB.prepare(
-      "INSERT INTO guests (id, name, color, table_id) VALUES (?, ?, ?, NULL)"
+      "INSERT INTO guests (id, name, color, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
     ).bind(id, name.trim(), color);
   });
 
@@ -161,8 +174,8 @@ api.put("/tables/:id", async (c) => {
 api.delete("/tables/:id", async (c) => {
   const tableId = c.req.param("id");
 
-  // First, unassign all guests from this table
-  await c.env.DB.prepare("UPDATE guests SET table_id = NULL WHERE table_id = ?")
+  // First, unassign all guests from this table and reset their positions
+  await c.env.DB.prepare("UPDATE guests SET table_id = NULL, table_position = NULL WHERE table_id = ?")
     .bind(tableId)
     .run();
 
