@@ -6,7 +6,9 @@
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "wrangler deploy",
+    "deploy": "npm run build && wrangler deploy",
+    "predeploy": "wrangler d1 migrations apply DB --remote",
+    "seedLocalD1": "wrangler d1 migrations apply DB --local",
     "db:migrate": "wrangler d1 migrations apply seat-plan --local",
     "db:migrate:remote": "wrangler d1 migrations apply seat-plan --remote"
   },
