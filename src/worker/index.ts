@@ -10,6 +10,7 @@ interface Guest {
   name: string;
   color: string;
   table_id: string | null;
+  table_position: number | null;
 }
 
 interface Table {
@@ -31,7 +32,7 @@ const api = new Hono<{ Bindings: Env }>();
 // Get all guests
 api.get("/guests", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, color, table_id FROM guests ORDER BY name"
+    "SELECT id, name, color, table_id, table_position FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
   ).all<Guest>();
   return c.json(results);
 });
@@ -55,8 +56,20 @@ api.put("/guests/:id/move", async (c) => {
   const guestId = c.req.param("id");
   const { tableId } = await c.req.json<{ tableId: string | null }>();
 
-  await c.env.DB.prepare("UPDATE guests SET table_id = ? WHERE id = ?")
-    .bind(tableId, guestId)
+  let tablePosition: number | null = null;
+  
+  if (tableId !== null) {
+    // Get the max position for this table
+    const { results } = await c.env.DB.prepare(
+      "SELECT MAX(table_position) as max_pos FROM guests WHERE table_id = ?"
+    ).bind(tableId).all<{ max_pos: number | null }>();
+    
+    const maxPos = results[0]?.max_pos;
+    tablePosition = maxPos !== null ? maxPos + 1 : 0;
+  }
+
+  await c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE id = ?")
+    .bind(tableId, tablePosition, guestId)
     .run();
 
   return c.json({ success: true });

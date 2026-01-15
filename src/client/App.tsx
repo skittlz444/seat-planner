@@ -9,6 +9,7 @@ interface Guest {
   name: string;
   color: string;
   table_id: string | null;
+  table_position?: number | null;
 }
 
 interface Table {
@@ -85,7 +86,9 @@ const App = () => {
       setTables(
         tablesData.map((t: { id: string; name: string; max_seats: number }) => ({
           ...t,
-          guests: guestsData.filter((g: Guest) => g.table_id === t.id),
+          guests: guestsData
+            .filter((g: Guest) => g.table_id === t.id)
+            .sort((a, b) => (a.table_position ?? 0) - (b.table_position ?? 0)),
         }))
       );
       setError(null);
