@@ -19,9 +19,9 @@ interface Table {
 
 const app = new Hono<{ Bindings: Env }>();
 
-// Generate a unique ID
+// Generate a unique ID using crypto.randomUUID()
 function generateId(): string {
-  return Math.random().toString(36).substring(2, 11);
+  return crypto.randomUUID();
 }
 
 // API Routes

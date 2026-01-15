@@ -1,6 +1,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Users, GripVertical, Search, Trash2 } from "lucide-react";
 
+// Configuration constants
+const MAX_GUESTS_PER_TABLE = 16;
+
 interface Guest {
   id: string;
   name: string;
@@ -31,6 +34,12 @@ const App = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const showNotification = (message: string) => {
+    setNotification(message);
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   const groupColors: GroupColor[] = [
     { name: "Singapore - Hayden", hex: "#3b82f6" },
@@ -174,8 +183,8 @@ const App = () => {
 
     if (toTableId !== null) {
       const targetTable = tables.find((t) => t.id === toTableId);
-      if (targetTable && targetTable.guests.length >= 16) {
-        alert("This table is full! (Max 16 people)");
+      if (targetTable && targetTable.guests.length >= MAX_GUESTS_PER_TABLE) {
+        showNotification(`This table is full! (Max ${MAX_GUESTS_PER_TABLE} people)`);
         return;
       }
     }
@@ -249,6 +258,12 @@ const App = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
+      {/* Toast Notification */}
+      {notification && (
+        <div className="fixed top-4 right-4 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg animate-pulse">
+          {notification}
+        </div>
+      )}
       <header className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
@@ -383,23 +398,23 @@ const App = () => {
                     <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-300 ${
-                          table.guests.length >= 16
+                          table.guests.length >= MAX_GUESTS_PER_TABLE
                             ? "bg-red-500"
                             : "bg-indigo-500"
                         }`}
                         style={{
-                          width: `${(table.guests.length / 16) * 100}%`,
+                          width: `${(table.guests.length / MAX_GUESTS_PER_TABLE) * 100}%`,
                         }}
                       />
                     </div>
                     <span
                       className={`text-[10px] font-bold ${
-                        table.guests.length >= 16
+                        table.guests.length >= MAX_GUESTS_PER_TABLE
                           ? "text-red-500"
                           : "text-slate-400"
                       }`}
                     >
-                      {table.guests.length}/16
+                      {table.guests.length}/{MAX_GUESTS_PER_TABLE}
                     </span>
                   </div>
                 </div>
