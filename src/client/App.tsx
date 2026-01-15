@@ -372,7 +372,7 @@ const App = () => {
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed top-4 right-4 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg animate-pulse">
+        <div className="fixed top-4 right-4 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg">
           {notification}
         </div>
       )}
