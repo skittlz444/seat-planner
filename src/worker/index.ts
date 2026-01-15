@@ -48,7 +48,7 @@ api.post("/guests", async (c) => {
     .bind(id, name, color)
     .run();
 
-  return c.json({ id, name, color, table_id: null }, 201);
+  return c.json({ id, name, color, table_id: null, table_position: null }, 201);
 });
 
 // Move a guest to a table (or unassign)
@@ -114,7 +114,7 @@ api.post("/guests/bulk", async (c) => {
   // Use batch for better performance
   const statements = validNames.map((name) => {
     const id = generateId();
-    guests.push({ id, name: name.trim(), color, table_id: null });
+    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null });
     return c.env.DB.prepare(
       "INSERT INTO guests (id, name, color, table_id) VALUES (?, ?, ?, NULL)"
     ).bind(id, name.trim(), color);
@@ -174,8 +174,8 @@ api.put("/tables/:id", async (c) => {
 api.delete("/tables/:id", async (c) => {
   const tableId = c.req.param("id");
 
-  // First, unassign all guests from this table
-  await c.env.DB.prepare("UPDATE guests SET table_id = NULL WHERE table_id = ?")
+  // First, unassign all guests from this table and reset their positions
+  await c.env.DB.prepare("UPDATE guests SET table_id = NULL, table_position = NULL WHERE table_id = ?")
     .bind(tableId)
     .run();
 
