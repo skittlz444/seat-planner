@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, GripVertical, Search, Trash2 } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, Settings, X, UserPlus } from "lucide-react";
 
-// Configuration constants
-const MAX_GUESTS_PER_TABLE = 16;
+// Default configuration constants
+const DEFAULT_MAX_GUESTS_PER_TABLE = 16;
 
 interface Guest {
   id: string;
@@ -35,6 +35,20 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  
+  // Configurable seat count
+  const [maxGuestsPerTable, setMaxGuestsPerTable] = useState(DEFAULT_MAX_GUESTS_PER_TABLE);
+  const [showSettings, setShowSettings] = useState(false);
+  const [tempMaxGuests, setTempMaxGuests] = useState(DEFAULT_MAX_GUESTS_PER_TABLE.toString());
+  
+  // Edit guest name state
+  const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
+  const [editingGuestName, setEditingGuestName] = useState("");
+  
+  // Bulk add modal state
+  const [showBulkAddModal, setShowBulkAddModal] = useState(false);
+  const [bulkAddNames, setBulkAddNames] = useState("");
+  const [bulkAddColor, setBulkAddColor] = useState("#3b82f6");
 
   const showNotification = (message: string) => {
     setNotification(message);
@@ -144,7 +158,101 @@ const App = () => {
     }
   };
 
+  // Edit guest name functions
+  const startEditingGuest = (guest: Guest, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingGuestId(guest.id);
+    setEditingGuestName(guest.name);
+  };
+
+  const saveGuestName = async (guestId: string, tableId: string | null) => {
+    if (!editingGuestName.trim()) {
+      setEditingGuestId(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/guests/${guestId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: editingGuestName.trim() }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update guest name");
+
+      // Update in local state
+      if (tableId === null) {
+        setGuests((prev) =>
+          prev.map((g) =>
+            g.id === guestId ? { ...g, name: editingGuestName.trim() } : g
+          )
+        );
+      } else {
+        setTables((prev) =>
+          prev.map((t) =>
+            t.id === tableId
+              ? {
+                  ...t,
+                  guests: t.guests.map((g) =>
+                    g.id === guestId ? { ...g, name: editingGuestName.trim() } : g
+                  ),
+                }
+              : t
+          )
+        );
+      }
+      showNotification("Guest name updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update guest name");
+    } finally {
+      setEditingGuestId(null);
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent, guestId: string, tableId: string | null) => {
+    if (e.key === "Enter") {
+      saveGuestName(guestId, tableId);
+    } else if (e.key === "Escape") {
+      setEditingGuestId(null);
+    }
+  };
+
+  // Bulk add guests
+  const handleBulkAdd = async () => {
+    const names = bulkAddNames.split("\n").filter((name) => name.trim());
+    if (names.length === 0) return;
+
+    try {
+      const response = await fetch("/api/guests/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ names, color: bulkAddColor }),
+      });
+
+      if (!response.ok) throw new Error("Failed to bulk add guests");
+
+      const newGuests = await response.json();
+      setGuests((prev) => [...newGuests, ...prev]);
+      showNotification(`Added ${newGuests.length} guests`);
+      setShowBulkAddModal(false);
+      setBulkAddNames("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to bulk add guests");
+    }
+  };
+
+  // Settings
+  const saveSettings = () => {
+    const newMax = parseInt(tempMaxGuests, 10);
+    if (!isNaN(newMax) && newMax > 0) {
+      setMaxGuestsPerTable(newMax);
+      showNotification(`Max guests per table set to ${newMax}`);
+    }
+    setShowSettings(false);
+  };
+
   const primeDrag = (guestId: string, fromTableId: string | null) => {
+    if (editingGuestId === guestId) return; // Don't start drag if editing this guest
     setDraggedGuestId({ guestId, fromTableId });
   };
 
@@ -153,6 +261,10 @@ const App = () => {
     guestId: string,
     fromTableId: string | null = null
   ) => {
+    if (editingGuestId === guestId) {
+      e.preventDefault();
+      return;
+    }
     setDraggedGuestId({ guestId, fromTableId });
     e.dataTransfer.setData("text/plain", guestId);
     e.dataTransfer.effectAllowed = "move";
@@ -183,8 +295,8 @@ const App = () => {
 
     if (toTableId !== null) {
       const targetTable = tables.find((t) => t.id === toTableId);
-      if (targetTable && targetTable.guests.length >= MAX_GUESTS_PER_TABLE) {
-        showNotification(`This table is full! (Max ${MAX_GUESTS_PER_TABLE} people)`);
+      if (targetTable && targetTable.guests.length >= maxGuestsPerTable) {
+        showNotification(`This table is full! (Max ${maxGuestsPerTable} people)`);
         return;
       }
     }
@@ -264,6 +376,102 @@ const App = () => {
           {notification}
         </div>
       )}
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-800">Settings</h3>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Max Guests Per Table
+                </label>
+                <input
+                  type="number"
+                  min="1"
+                  value={tempMaxGuests}
+                  onChange={(e) => setTempMaxGuests(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                />
+              </div>
+              <button
+                onClick={saveSettings}
+                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700"
+              >
+                Save Settings
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Add Modal */}
+      {showBulkAddModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-800">Bulk Add Guests</h3>
+              <button
+                onClick={() => setShowBulkAddModal(false)}
+                className="p-2 hover:bg-slate-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Guest Names (one per line)
+                </label>
+                <textarea
+                  value={bulkAddNames}
+                  onChange={(e) => setBulkAddNames(e.target.value)}
+                  placeholder={"John Smith\nJane Doe\nBob Wilson"}
+                  rows={8}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-2">
+                  Group Color
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {groupColors.map((c) => (
+                    <button
+                      key={c.hex}
+                      type="button"
+                      onClick={() => setBulkAddColor(c.hex)}
+                      className={`w-8 h-8 rounded-full border-2 transition-all ${
+                        bulkAddColor === c.hex
+                          ? "border-slate-800 scale-110 shadow-sm"
+                          : "border-transparent"
+                      }`}
+                      style={{ backgroundColor: c.hex }}
+                      title={c.name}
+                    />
+                  ))}
+                </div>
+              </div>
+              <button
+                onClick={handleBulkAdd}
+                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700"
+              >
+                Add Guests
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
@@ -274,12 +482,24 @@ const App = () => {
             Total Guests • {guests.length} Unassigned
           </p>
         </div>
-        <button
-          onClick={addTable}
-          className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
-        >
-          <Plus size={20} /> Add Table
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => {
+              setTempMaxGuests(maxGuestsPerTable.toString());
+              setShowSettings(true);
+            }}
+            className="flex items-center justify-center gap-2 bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-3 rounded-xl font-semibold transition-all shadow-sm"
+            title="Settings"
+          >
+            <Settings size={20} />
+          </button>
+          <button
+            onClick={addTable}
+            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+          >
+            <Plus size={20} /> Add Table
+          </button>
+        </div>
       </header>
 
       <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
@@ -291,7 +511,7 @@ const App = () => {
               Guest Manager
             </h2>
 
-            <form onSubmit={addGuest} className="mb-6 space-y-3">
+            <form onSubmit={addGuest} className="mb-4 space-y-3">
               <input
                 type="text"
                 placeholder="New guest name..."
@@ -322,6 +542,14 @@ const App = () => {
               </button>
             </form>
 
+            {/* Bulk Add Button */}
+            <button
+              onClick={() => setShowBulkAddModal(true)}
+              className="w-full mb-6 flex items-center justify-center gap-2 bg-indigo-100 text-indigo-700 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-200 transition-colors"
+            >
+              <UserPlus size={16} /> Bulk Add Guests
+            </button>
+
             <div className="pt-4 border-t border-slate-100">
               <div className="relative mb-4">
                 <Search
@@ -346,7 +574,7 @@ const App = () => {
                   {filteredUnassigned.map((guest) => (
                     <div
                       key={guest.id}
-                      draggable
+                      draggable={editingGuestId !== guest.id}
                       onMouseDown={() => primeDrag(guest.id, null)}
                       onDragStart={(e) => onDragStart(e, guest.id, null)}
                       onDragEnd={onDragEnd}
@@ -360,9 +588,26 @@ const App = () => {
                         className="w-2.5 h-2.5 rounded-full shrink-0"
                         style={{ backgroundColor: guest.color }}
                       />
-                      <span className="font-semibold text-xs truncate text-slate-700">
-                        {guest.name}
-                      </span>
+                      {editingGuestId === guest.id ? (
+                        <input
+                          type="text"
+                          value={editingGuestName}
+                          onChange={(e) => setEditingGuestName(e.target.value)}
+                          onBlur={() => saveGuestName(guest.id, null)}
+                          onKeyDown={(e) => handleEditKeyDown(e, guest.id, null)}
+                          autoFocus
+                          className="flex-1 text-xs font-semibold text-slate-700 bg-slate-50 px-2 py-1 rounded border border-indigo-300 outline-none"
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                      ) : (
+                        <span
+                          className="font-semibold text-xs truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
+                          onClick={(e) => startEditingGuest(guest, e)}
+                          title="Click to edit name"
+                        >
+                          {guest.name}
+                        </span>
+                      )}
                     </div>
                   ))}
                   {filteredUnassigned.length === 0 && (
@@ -398,23 +643,23 @@ const App = () => {
                     <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-300 ${
-                          table.guests.length >= MAX_GUESTS_PER_TABLE
+                          table.guests.length >= maxGuestsPerTable
                             ? "bg-red-500"
                             : "bg-indigo-500"
                         }`}
                         style={{
-                          width: `${(table.guests.length / MAX_GUESTS_PER_TABLE) * 100}%`,
+                          width: `${(table.guests.length / maxGuestsPerTable) * 100}%`,
                         }}
                       />
                     </div>
                     <span
                       className={`text-[10px] font-bold ${
-                        table.guests.length >= MAX_GUESTS_PER_TABLE
+                        table.guests.length >= maxGuestsPerTable
                           ? "text-red-500"
                           : "text-slate-400"
                       }`}
                     >
-                      {table.guests.length}/{MAX_GUESTS_PER_TABLE}
+                      {table.guests.length}/{maxGuestsPerTable}
                     </span>
                   </div>
                 </div>
@@ -431,16 +676,33 @@ const App = () => {
                 {table.guests.map((guest) => (
                   <div
                     key={guest.id}
-                    draggable
+                    draggable={editingGuestId !== guest.id}
                     onMouseDown={() => primeDrag(guest.id, table.id)}
                     onDragStart={(e) => onDragStart(e, guest.id, table.id)}
                     onDragEnd={onDragEnd}
                     className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100 cursor-grab active:cursor-grabbing hover:bg-white hover:shadow-md transition-all border-l-4 select-none"
                     style={{ borderLeftColor: guest.color }}
                   >
-                    <span className="text-[11px] font-bold truncate text-slate-700">
-                      {guest.name}
-                    </span>
+                    {editingGuestId === guest.id ? (
+                      <input
+                        type="text"
+                        value={editingGuestName}
+                        onChange={(e) => setEditingGuestName(e.target.value)}
+                        onBlur={() => saveGuestName(guest.id, table.id)}
+                        onKeyDown={(e) => handleEditKeyDown(e, guest.id, table.id)}
+                        autoFocus
+                        className="flex-1 text-[11px] font-bold text-slate-700 bg-white px-2 py-1 rounded border border-indigo-300 outline-none"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                    ) : (
+                      <span
+                        className="text-[11px] font-bold truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
+                        onClick={(e) => startEditingGuest(guest, e)}
+                        title="Click to edit name"
+                      >
+                        {guest.name}
+                      </span>
+                    )}
                   </div>
                 ))}
 

@@ -1,6 +1,7 @@
 name = "seat-planner"
 compatibility_date = "2025-01-15"
 main = "./src/worker/index.ts"
+preview_urls = true
 
 [assets]
 directory = "./dist/client"
@@ -13,3 +14,7 @@ binding = "DB"
 database_name = "seat-plan"
 database_id = "861bd462-f3cb-476b-94b8-d5fa0c5591b7"
 migrations_dir = "migrations"
+
+[[routes]]
+pattern = "seat.haydencarson.com"
+custom_domain = true

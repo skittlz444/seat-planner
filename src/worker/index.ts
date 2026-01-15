@@ -61,6 +61,56 @@ api.put("/guests/:id/move", async (c) => {
   return c.json({ success: true });
 });
 
+// Update a guest's name
+api.put("/guests/:id", async (c) => {
+  const guestId = c.req.param("id");
+  const { name } = await c.req.json<{ name: string }>();
+
+  if (!name || !name.trim()) {
+    return c.json({ error: "Name is required" }, 400);
+  }
+
+  await c.env.DB.prepare("UPDATE guests SET name = ? WHERE id = ?")
+    .bind(name.trim(), guestId)
+    .run();
+
+  return c.json({ success: true });
+});
+
+// Bulk create guests
+api.post("/guests/bulk", async (c) => {
+  const body = await c.req.json<{ names: string[]; color: string }>();
+  
+  if (!body.names || !Array.isArray(body.names)) {
+    return c.json({ error: "Names must be an array" }, 400);
+  }
+  
+  if (!body.color || typeof body.color !== "string") {
+    return c.json({ error: "Color is required" }, 400);
+  }
+
+  const { names, color } = body;
+  const guests: Guest[] = [];
+  const validNames = names.filter((name) => name && name.trim());
+
+  if (validNames.length === 0) {
+    return c.json({ error: "At least one valid name is required" }, 400);
+  }
+
+  // Use batch for better performance
+  const statements = validNames.map((name) => {
+    const id = generateId();
+    guests.push({ id, name: name.trim(), color, table_id: null });
+    return c.env.DB.prepare(
+      "INSERT INTO guests (id, name, color, table_id) VALUES (?, ?, ?, NULL)"
+    ).bind(id, name.trim(), color);
+  });
+
+  await c.env.DB.batch(statements);
+
+  return c.json(guests, 201);
+});
+
 // Delete a guest
 api.delete("/guests/:id", async (c) => {
   const guestId = c.req.param("id");
