@@ -877,13 +877,13 @@ const TableLayoutPage = ({ onBack }: Props) => {
     const isSelected = selectedId === item.id;
     return (
       <g key={item.id}>
-        {/* Wider invisible border for easier clicking/dragging */}
+        {/* Wider invisible border for easier clicking/dragging – fill="none" so interior is click-through */}
         <rect
           x={item.x}
           y={item.y}
           width={item.width}
           height={item.height}
-          fill="transparent"
+          fill="none"
           stroke="transparent"
           strokeWidth={12}
           style={{ cursor: tool === "select" ? "move" : "pointer" }}
