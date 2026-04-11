@@ -251,6 +251,30 @@ api.put("/canvas-layout", async (c) => {
     return c.json({ error: "Items must be an array" }, 400);
   }
 
+  const VALID_TYPES = new Set(["table", "text", "line"]);
+
+  for (const item of items) {
+    if (!item || typeof item !== "object") {
+      return c.json({ error: "Each item must be an object" }, 400);
+    }
+    if (typeof item.id !== "string" || !VALID_TYPES.has(item.type)) {
+      return c.json({ error: "Each item must have a string id and a valid type (table, text, line)" }, 400);
+    }
+    if (item.type === "table") {
+      if (typeof item.tableId !== "string" || typeof item.x !== "number" || typeof item.y !== "number" || typeof item.rotation !== "number") {
+        return c.json({ error: "Table items require string tableId and numeric x, y, rotation" }, 400);
+      }
+    } else if (item.type === "text") {
+      if (typeof item.x !== "number" || typeof item.y !== "number" || typeof item.text !== "string") {
+        return c.json({ error: "Text items require numeric x, y and string text" }, 400);
+      }
+    } else if (item.type === "line") {
+      if (typeof item.x1 !== "number" || typeof item.y1 !== "number" || typeof item.x2 !== "number" || typeof item.y2 !== "number") {
+        return c.json({ error: "Line items require numeric x1, y1, x2, y2" }, 400);
+      }
+    }
+  }
+
   await c.env.DB.prepare(
     "INSERT OR REPLACE INTO canvas_layouts (id, items, updated_at) VALUES ('default', ?, datetime('now'))"
   )

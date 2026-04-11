@@ -10,23 +10,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
-
-// ── Shared interfaces (same as App.tsx) ──────────────────────────────────────
-
-interface Guest {
-  id: string;
-  name: string;
-  color: string;
-  table_id: string | null;
-  table_position?: number | null;
-}
-
-interface Table {
-  id: string;
-  name: string;
-  max_seats: number;
-  guests: Guest[];
-}
+import type { Guest, Table } from "../shared/types";
 
 // ── Canvas item types ────────────────────────────────────────────────────────
 
@@ -602,7 +586,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
     return (
       <div
         key={item.id}
-        className={`absolute select-none ${
+        className={`absolute ${isEditing ? "" : "select-none"} ${
           isSelected ? "ring-2 ring-indigo-500 ring-offset-1" : ""
         }`}
         style={{
@@ -648,7 +632,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
                 if (!item.text.trim()) removeItem(item.id);
               }
             }}
-            className="px-2 py-1 border-2 border-indigo-500 rounded text-sm font-medium bg-white outline-none min-w-[120px]"
+            className="px-2 py-1 border-2 border-indigo-500 rounded text-sm font-medium bg-white outline-none min-w-[120px] select-text cursor-text"
           />
         ) : (
           <div className="px-2 py-1 text-sm font-medium text-slate-800 cursor-move whitespace-nowrap">

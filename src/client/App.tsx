@@ -1,24 +1,10 @@
 import { useState, useEffect, useCallback } from "react";
 import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
+import type { Guest, Table } from "../shared/types";
 
 // Default configuration constants
 const DEFAULT_MAX_GUESTS_PER_TABLE = 16;
-
-interface Guest {
-  id: string;
-  name: string;
-  color: string;
-  table_id: string | null;
-  table_position?: number | null;
-}
-
-interface Table {
-  id: string;
-  name: string;
-  max_seats: number;
-  guests: Guest[];
-}
 
 interface GroupColor {
   name: string;
