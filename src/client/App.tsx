@@ -990,8 +990,9 @@ const App = () => {
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
-                    <span
-                      className="text-xs text-slate-400 cursor-pointer hover:text-indigo-600 italic block mt-0.5 truncate"
+                    <button
+                      type="button"
+                      className="text-xs text-slate-400 cursor-pointer hover:text-indigo-600 italic block mt-0.5 truncate bg-transparent border-none p-0 text-left w-full"
                       onClick={(e) => {
                         e.stopPropagation();
                         setEditingNicknameTableId(table.id);
@@ -1000,7 +1001,7 @@ const App = () => {
                       title="Click to edit nickname"
                     >
                       {table.nickname || "Add nickname…"}
-                    </span>
+                    </button>
                   )}
                   <div className="flex items-center gap-2 mt-1">
                     <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">

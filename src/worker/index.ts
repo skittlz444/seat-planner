@@ -227,7 +227,16 @@ api.put("/tables/:id", async (c) => {
 
   const { maxSeats, nickname } = body;
 
-  if (maxSeats !== undefined && (!maxSeats || maxSeats < 1)) {
+  if (
+    maxSeats !== undefined &&
+    (typeof maxSeats !== "number" ||
+      !Number.isFinite(maxSeats) ||
+      !Number.isInteger(maxSeats))
+  ) {
+    return c.json({ error: "maxSeats must be a finite integer" }, 400);
+  }
+
+  if (maxSeats !== undefined && maxSeats < 1) {
     return c.json({ error: "maxSeats must be at least 1" }, 400);
   }
 
