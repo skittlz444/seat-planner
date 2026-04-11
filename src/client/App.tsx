@@ -1087,7 +1087,7 @@ const App = () => {
                     className="text-slate-300 shrink-0 print:hidden"
                   />
                   <div className="flex-1">
-                    <h3 className="text-md font-bold text-slate-800 print:hidden">
+                    <h3 className="text-md font-bold text-slate-800">
                     {table.name}
                   </h3>
                   {editingNicknameTableId === table.id ? (
