@@ -4,6 +4,7 @@ export interface Guest {
   color: string;
   table_id: string | null;
   table_position?: number | null;
+  arrived?: number;
 }
 
 export interface Table {
@@ -13,4 +14,9 @@ export interface Table {
   max_seats: number;
   sort_order: number;
   guests: Guest[];
+}
+
+export interface ColorGroup {
+  hex: string;
+  name: string;
 }
