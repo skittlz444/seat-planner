@@ -59,12 +59,12 @@ const ShuttlePage = ({ onBack }: Props) => {
         throw new Error("Failed to fetch data");
       }
 
-      const guestsData: ShuttleGuest[] = await guestsRes.json();
+      const guestsRaw: Guest[] = await guestsRes.json();
       const tablesData: TableInfo[] = await tablesRes.json();
       const colorGroupsData: ColorGroup[] = await colorGroupsRes.json();
 
       setAllGuests(
-        guestsData.map((g) => ({
+        guestsRaw.map((g) => ({
           ...g,
           arrived: Boolean(g.arrived),
         }))
@@ -155,8 +155,29 @@ const ShuttlePage = ({ onBack }: Props) => {
     }
   });
 
-  // Sort shuttle times
-  const sortedShuttleTimes = Object.keys(shuttleGroups).sort();
+  // Parse a time string like "5:00 PM", "11:00 AM", "14:30" into minutes since midnight
+  const parseTimeToMinutes = (time: string): number => {
+    const normalized = time.trim().toUpperCase();
+    const match12 = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/);
+    if (match12) {
+      let hours = parseInt(match12[1], 10);
+      const minutes = parseInt(match12[2], 10);
+      const period = match12[3];
+      if (period === "AM" && hours === 12) hours = 0;
+      if (period === "PM" && hours !== 12) hours += 12;
+      return hours * 60 + minutes;
+    }
+    const match24 = normalized.match(/^(\d{1,2}):(\d{2})$/);
+    if (match24) {
+      return parseInt(match24[1], 10) * 60 + parseInt(match24[2], 10);
+    }
+    return Infinity; // unparseable times sort to end
+  };
+
+  // Sort shuttle times chronologically
+  const sortedShuttleTimes = Object.keys(shuttleGroups).sort(
+    (a, b) => parseTimeToMinutes(a) - parseTimeToMinutes(b)
+  );
 
   const totalWithShuttle = allGuests.filter((g) => g.shuttle_time).length;
 

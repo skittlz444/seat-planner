@@ -57,7 +57,18 @@ api.post("/guests", async (c) => {
     .bind(id, name, color)
     .run();
 
-  return c.json({ id, name, color, table_id: null, table_position: null, shuttle_time: null }, 201);
+  return c.json(
+    {
+      id,
+      name,
+      color,
+      table_id: null,
+      table_position: null,
+      arrived: 0,
+      shuttle_time: null,
+    },
+    201
+  );
 });
 
 // Move a guest to a table (or unassign)
