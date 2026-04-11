@@ -567,7 +567,7 @@ const GuestListPage = ({ onBack }: Props) => {
                             {guest.name}
                           </span>
                           {guestTable && (
-                            <span className="text-xs text-slate-400 ml-2">
+                            <span className="text-sm font-medium text-slate-600 ml-2 bg-slate-100 px-2 py-0.5 rounded">
                               {guestTable.name}
                               {guestTable.nickname
                                 ? ` (${guestTable.nickname})`
