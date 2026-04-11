@@ -490,18 +490,7 @@ const ShuttlePage = ({ onBack }: Props) => {
         )}
       </main>
 
-      {/* Print styles */}
-      <style>{`
-        @media print {
-          .print\\:hidden {
-            display: none !important;
-          }
-          body {
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-        }
-      `}</style>
+      {/* Print styles now consolidated in index.css */}
     </div>
   );
 };

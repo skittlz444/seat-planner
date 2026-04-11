@@ -40,19 +40,30 @@
     page-break-inside: avoid;
   }
 
+  /* Tailwind print:hidden utility */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Preserve colors in print */
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
   /* ── Planner main view: print-friendly tables ─────────────── */
 
-  /* Hide interactive / non-essential elements */
-  header button,
-  header .flex.gap-2,
+  /* Hide interactive / non-essential elements (scoped to planner) */
+  body:has(.planner-page) header button,
+  body:has(.planner-page) header .flex.gap-2,
   .fixed,
   [aria-label*="Delete"],
   button[title="Remove Table"] {
     display: none !important;
   }
 
-  /* Hide total guests count in header */
-  header p {
+  /* Hide total guests count in planner header only */
+  body:has(.planner-page) header p {
     display: none !important;
   }
 
@@ -62,25 +73,20 @@
     display: none !important;
   }
 
-  /* Hide the capacity progress bar row */
-  .print\:hidden {
-    display: none !important;
-  }
-
   /* Hide sidebar (Guest Manager panel) */
-  main > section:first-child {
+  .planner-page > section:first-child {
     display: none !important;
   }
 
   /* Let the tables section span the full width */
-  main {
+  .planner-page {
     display: block !important;
     max-width: 100% !important;
     padding: 0 !important;
   }
 
   /* Tables grid: two columns side-by-side, each constrained */
-  main > section:last-child {
+  .planner-page > section:last-child {
     display: grid !important;
     grid-template-columns: 1fr 1fr !important;
     gap: 12px !important;
@@ -88,7 +94,7 @@
   }
 
   /* Each table card: avoid page break, constrained width */
-  main > section:last-child > div {
+  .planner-page > section:last-child > div {
     break-inside: avoid;
     page-break-inside: avoid;
     max-width: 100% !important;
@@ -104,15 +110,13 @@
   }
 
   /* Hide the "Add New Table" button card */
-  main > section:last-child > button {
+  .planner-page > section:last-child > button {
     display: none !important;
   }
 
   /* Reset page margins and background */
   body {
     background: white !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
   }
 
   /* Remove outer padding */

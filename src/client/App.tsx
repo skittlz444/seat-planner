@@ -823,7 +823,7 @@ const App = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <main className="planner-page max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
         {/* Sidebar */}
         <section className="lg:col-span-1 space-y-6">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 sticky top-8">
