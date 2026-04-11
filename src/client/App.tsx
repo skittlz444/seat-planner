@@ -39,6 +39,10 @@ const App = () => {
   // Edit guest color state
   const [editingColorGuestId, setEditingColorGuestId] = useState<string | null>(null);
   
+  // Edit table nickname state
+  const [editingNicknameTableId, setEditingNicknameTableId] = useState<string | null>(null);
+  const [tempNickname, setTempNickname] = useState("");
+  
   // Drag reorder state
   const [dropTarget, setDropTarget] = useState<{
     tableId: string;
@@ -83,11 +87,11 @@ const App = () => {
       }
 
       const guestsData: Guest[] = await guestsRes.json();
-      const tablesData: Array<{ id: string; name: string; max_seats: number; sort_order: number }> = await tablesRes.json();
+      const tablesData: Array<{ id: string; name: string; nickname: string | null; max_seats: number; sort_order: number }> = await tablesRes.json();
 
       setGuests(guestsData.filter((g: Guest) => !g.table_id));
       setTables(
-        tablesData.map((t: { id: string; name: string; max_seats: number; sort_order: number }) => ({
+        tablesData.map((t: { id: string; name: string; nickname: string | null; max_seats: number; sort_order: number }) => ({
           ...t,
           guests: guestsData
             .filter((g: Guest) => g.table_id === t.id)
@@ -138,7 +142,7 @@ const App = () => {
 
       if (!response.ok) throw new Error("Failed to add table");
 
-      const newTable: { id: string; name: string; max_seats: number; sort_order: number } = await response.json();
+      const newTable: { id: string; name: string; nickname: string | null; max_seats: number; sort_order: number } = await response.json();
       setTables((prev) => [...prev, { ...newTable, guests: [] }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add table");
@@ -337,6 +341,28 @@ const App = () => {
       setEditingTableId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update table");
+    }
+  };
+
+  const updateTableNickname = async (tableId: string) => {
+    const newNickname = tempNickname.trim() || null;
+
+    try {
+      const response = await fetch(`/api/tables/${tableId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nickname: newNickname }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update table nickname");
+
+      setTables((prev) =>
+        prev.map((t) => (t.id === tableId ? { ...t, nickname: newNickname } : t))
+      );
+      showNotification(newNickname ? `Table nickname set to "${newNickname}"` : "Table nickname removed");
+      setEditingNicknameTableId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update table nickname");
     }
   };
 
@@ -945,6 +971,37 @@ const App = () => {
                     <h3 className="text-md font-bold text-slate-800">
                     {table.name}
                   </h3>
+                  {editingNicknameTableId === table.id ? (
+                    <input
+                      type="text"
+                      value={tempNickname}
+                      onChange={(e) => setTempNickname(e.target.value)}
+                      onBlur={() => updateTableNickname(table.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          updateTableNickname(table.id);
+                        } else if (e.key === "Escape") {
+                          setEditingNicknameTableId(null);
+                        }
+                      }}
+                      autoFocus
+                      placeholder="Add nickname…"
+                      className="text-xs text-slate-500 bg-white px-1 py-0.5 rounded border border-indigo-300 outline-none w-full mt-0.5"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                  ) : (
+                    <span
+                      className="text-xs text-slate-400 cursor-pointer hover:text-indigo-600 italic block mt-0.5 truncate"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingNicknameTableId(table.id);
+                        setTempNickname(table.nickname ?? "");
+                      }}
+                      title="Click to edit nickname"
+                    >
+                      {table.nickname || "Add nickname…"}
+                    </span>
+                  )}
                   <div className="flex items-center gap-2 mt-1">
                     <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
