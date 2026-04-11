@@ -4,6 +4,7 @@ import {
   MousePointer,
   Type,
   Minus,
+  Square,
   RotateCw,
   Trash2,
   Plus,
@@ -41,8 +42,17 @@ interface CanvasLineItem {
   y2: number;
 }
 
-type CanvasItem = CanvasTableItem | CanvasTextItem | CanvasLineItem;
-type Tool = "select" | "text" | "line";
+interface CanvasRectItem {
+  type: "rect";
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+type CanvasItem = CanvasTableItem | CanvasTextItem | CanvasLineItem | CanvasRectItem;
+type Tool = "select" | "text" | "line" | "rect";
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
@@ -95,6 +105,25 @@ const TableLayoutPage = ({ onBack }: Props) => {
     y: number;
   } | null>(null);
   const [linePreviewEnd, setLinePreviewEnd] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  // Line-dragging state (lines have x1,y1,x2,y2 instead of x,y)
+  const [lineDragging, setLineDragging] = useState<{
+    id: string;
+    offsetX1: number;
+    offsetY1: number;
+    offsetX2: number;
+    offsetY2: number;
+  } | null>(null);
+
+  // Rectangle-drawing state
+  const [rectStart, setRectStart] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [rectPreviewEnd, setRectPreviewEnd] = useState<{
     x: number;
     y: number;
   } | null>(null);
@@ -291,9 +320,32 @@ const TableLayoutPage = ({ onBack }: Props) => {
           setLinePreviewEnd(null);
           setSelectedId(newLine.id);
         }
+      } else if (tool === "rect") {
+        if (!rectStart) {
+          setRectStart(coords);
+        } else {
+          const x = Math.min(rectStart.x, coords.x);
+          const y = Math.min(rectStart.y, coords.y);
+          const width = Math.abs(coords.x - rectStart.x);
+          const height = Math.abs(coords.y - rectStart.y);
+          if (width > 5 && height > 5) {
+            const newRect: CanvasRectItem = {
+              type: "rect",
+              id: uid(),
+              x,
+              y,
+              width,
+              height,
+            };
+            setItems((prev) => [...prev, newRect]);
+            setSelectedId(newRect.id);
+          }
+          setRectStart(null);
+          setRectPreviewEnd(null);
+        }
       }
     },
-    [tool, lineStart, getCanvasCoords]
+    [tool, lineStart, rectStart, getCanvasCoords]
   );
 
   const handleCanvasMouseMove = useCallback(
@@ -312,7 +364,18 @@ const TableLayoutPage = ({ onBack }: Props) => {
         return;
       }
 
-      // Dragging an item
+      // Dragging a line (lines have x1,y1,x2,y2 instead of x,y)
+      if (lineDragging) {
+        updateItem(lineDragging.id, {
+          x1: coords.x - lineDragging.offsetX1,
+          y1: coords.y - lineDragging.offsetY1,
+          x2: coords.x - lineDragging.offsetX2,
+          y2: coords.y - lineDragging.offsetY2,
+        } as Partial<CanvasItem>);
+        return;
+      }
+
+      // Dragging an item (tables, text, rects)
       if (dragging) {
         updateItem(dragging.id, {
           x: coords.x - dragging.offsetX,
@@ -325,19 +388,26 @@ const TableLayoutPage = ({ onBack }: Props) => {
       if (tool === "line" && lineStart) {
         setLinePreviewEnd(coords);
       }
+
+      // Rectangle preview
+      if (tool === "rect" && rectStart) {
+        setRectPreviewEnd(coords);
+      }
     },
-    [rotating, dragging, tool, lineStart, getCanvasCoords, updateItem]
+    [rotating, lineDragging, dragging, tool, lineStart, rectStart, getCanvasCoords, updateItem]
   );
 
   const handleCanvasMouseUp = useCallback(() => {
     if (dragging) setDragging(null);
+    if (lineDragging) setLineDragging(null);
     if (rotating) setRotating(null);
-  }, [dragging, rotating]);
+  }, [dragging, lineDragging, rotating]);
 
   // Also handle mouseup outside canvas
   useEffect(() => {
     const handler = () => {
       setDragging(null);
+      setLineDragging(null);
       setRotating(null);
     };
     window.addEventListener("mouseup", handler);
@@ -351,13 +421,24 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
       const coords = getCanvasCoords(e);
       const item = items.find((it) => it.id === itemId);
-      if (!item || item.type === "line") return;
+      if (!item) return;
 
-      setDragging({
-        id: itemId,
-        offsetX: coords.x - item.x,
-        offsetY: coords.y - item.y,
-      });
+      if (item.type === "line") {
+        const lineItem = item as CanvasLineItem;
+        setLineDragging({
+          id: itemId,
+          offsetX1: coords.x - lineItem.x1,
+          offsetY1: coords.y - lineItem.y1,
+          offsetX2: coords.x - lineItem.x2,
+          offsetY2: coords.y - lineItem.y2,
+        });
+      } else {
+        setDragging({
+          id: itemId,
+          offsetX: coords.x - item.x,
+          offsetY: coords.y - item.y,
+        });
+      }
       setSelectedId(itemId);
     },
     [tool, items, getCanvasCoords]
@@ -409,6 +490,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
         setSelectedId(null);
         setLineStart(null);
         setLinePreviewEnd(null);
+        setRectStart(null);
+        setRectPreviewEnd(null);
         setEditingTextId(null);
         setTool("select");
       }
@@ -722,7 +805,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
     const isSelected = selectedId === item.id;
     return (
       <g key={item.id}>
-        {/* Wider invisible line for easier clicking */}
+        {/* Wider invisible line for easier clicking/dragging */}
         <line
           x1={item.x1}
           y1={item.y1}
@@ -730,7 +813,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
           y2={item.y2}
           stroke="transparent"
           strokeWidth={12}
-          style={{ cursor: "pointer" }}
+          style={{ cursor: tool === "select" ? "move" : "pointer" }}
+          onMouseDown={(e) => startDrag(e, item.id)}
           onClick={(e) => {
             e.stopPropagation();
             setSelectedId(item.id);
@@ -745,11 +829,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
           strokeWidth={isSelected ? 3 : 2}
           strokeLinecap="round"
           strokeDasharray={isSelected ? "none" : "8 4"}
-          style={{ cursor: "pointer" }}
-          onClick={(e) => {
-            e.stopPropagation();
-            setSelectedId(item.id);
-          }}
+          style={{ pointerEvents: "none" }}
         />
         {isSelected && (
           <>
@@ -793,6 +873,70 @@ const TableLayoutPage = ({ onBack }: Props) => {
     );
   };
 
+  const renderCanvasRect = (item: CanvasRectItem) => {
+    const isSelected = selectedId === item.id;
+    return (
+      <g key={item.id}>
+        {/* Wider invisible border for easier clicking/dragging */}
+        <rect
+          x={item.x}
+          y={item.y}
+          width={item.width}
+          height={item.height}
+          fill="transparent"
+          stroke="transparent"
+          strokeWidth={12}
+          style={{ cursor: tool === "select" ? "move" : "pointer" }}
+          onMouseDown={(e) => startDrag(e, item.id)}
+          onClick={(e) => {
+            e.stopPropagation();
+            setSelectedId(item.id);
+          }}
+        />
+        <rect
+          x={item.x}
+          y={item.y}
+          width={item.width}
+          height={item.height}
+          fill="transparent"
+          stroke={isSelected ? "#6366f1" : "#64748b"}
+          strokeWidth={isSelected ? 3 : 2}
+          rx={4}
+          ry={4}
+          strokeDasharray={isSelected ? "none" : "8 4"}
+          style={{ pointerEvents: "none" }}
+        />
+        {isSelected && (
+          <>
+            {/* Corner handles */}
+            <circle cx={item.x} cy={item.y} r={4} fill="#6366f1" stroke="white" strokeWidth={2} />
+            <circle cx={item.x + item.width} cy={item.y} r={4} fill="#6366f1" stroke="white" strokeWidth={2} />
+            <circle cx={item.x} cy={item.y + item.height} r={4} fill="#6366f1" stroke="white" strokeWidth={2} />
+            <circle cx={item.x + item.width} cy={item.y + item.height} r={4} fill="#6366f1" stroke="white" strokeWidth={2} />
+            {/* Delete button at top-right */}
+            <foreignObject
+              x={item.x + item.width - 10}
+              y={item.y - 24}
+              width={20}
+              height={20}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeItem(item.id);
+                }}
+                className="w-5 h-5 bg-red-600 text-white rounded-full shadow flex items-center justify-center hover:bg-red-700"
+                title="Delete rectangle"
+              >
+                <Trash2 size={10} />
+              </button>
+            </foreignObject>
+          </>
+        )}
+      </g>
+    );
+  };
+
   // ── Grid pattern background ──────────────────────────────────────────────
 
   const gridSize = 40;
@@ -821,6 +965,9 @@ const TableLayoutPage = ({ onBack }: Props) => {
   const canvasLineItems = items.filter(
     (it): it is CanvasLineItem => it.type === "line"
   );
+  const canvasRectItems = items.filter(
+    (it): it is CanvasRectItem => it.type === "rect"
+  );
 
   const selectedItem = items.find((it) => it.id === selectedId) ?? null;
 
@@ -843,6 +990,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
               setTool("select");
               setLineStart(null);
               setLinePreviewEnd(null);
+              setRectStart(null);
+              setRectPreviewEnd(null);
             }}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               tool === "select"
@@ -857,6 +1006,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
               setTool("text");
               setLineStart(null);
               setLinePreviewEnd(null);
+              setRectStart(null);
+              setRectPreviewEnd(null);
             }}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               tool === "text"
@@ -871,6 +1022,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
               setTool("line");
               setLineStart(null);
               setLinePreviewEnd(null);
+              setRectStart(null);
+              setRectPreviewEnd(null);
             }}
             className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
               tool === "line"
@@ -879,6 +1032,22 @@ const TableLayoutPage = ({ onBack }: Props) => {
             }`}
           >
             <Minus size={14} /> Line
+          </button>
+          <button
+            onClick={() => {
+              setTool("rect");
+              setRectStart(null);
+              setRectPreviewEnd(null);
+              setLineStart(null);
+              setLinePreviewEnd(null);
+            }}
+            className={`flex items-center gap-1 px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
+              tool === "rect"
+                ? "bg-white text-indigo-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
+          >
+            <Square size={14} /> Rect
           </button>
         </div>
 
@@ -1020,6 +1189,11 @@ const TableLayoutPage = ({ onBack }: Props) => {
                 to set end point. Great for drawing aisles.
               </li>
               <li>
+                <strong>Rect:</strong> Click to set first corner, click again
+                to set opposite corner. Draws a transparent rectangle.
+                Move it with Select tool; delete with Delete key.
+              </li>
+              <li>
                 <strong>Delete:</strong> Select an item, then press
                 Delete/Backspace or use the delete button.
               </li>
@@ -1034,7 +1208,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         <div
           ref={containerRef}
           className="flex-1 overflow-auto relative"
-          style={{ cursor: { text: "text" as const, line: "crosshair" as const, select: "default" as const }[tool] }}
+          style={{ cursor: { text: "text" as const, line: "crosshair" as const, rect: "crosshair" as const, select: "default" as const }[tool] }}
         >
           {/* Scaled canvas wrapper — the outer div sizes the scroll area */}
           <div
@@ -1082,7 +1256,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
                 <rect width="100%" height="100%" fill="url(#grid)" />
               </svg>
 
-              {/* Lines SVG layer */}
+              {/* Lines & Rectangles SVG layer */}
               <svg
                 className="absolute inset-0"
                 width={CANVAS_WIDTH}
@@ -1091,6 +1265,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
               >
                 <g style={{ pointerEvents: "auto" }}>
                   {canvasLineItems.map(renderCanvasLine)}
+                  {canvasRectItems.map(renderCanvasRect)}
                 </g>
 
                 {/* Line preview */}
@@ -1113,6 +1288,36 @@ const TableLayoutPage = ({ onBack }: Props) => {
                   <circle
                     cx={lineStart.x}
                     cy={lineStart.y}
+                    r={4}
+                    fill="#6366f1"
+                    opacity={0.8}
+                    style={{ pointerEvents: "none" }}
+                  />
+                )}
+
+                {/* Rectangle preview */}
+                {rectStart && rectPreviewEnd && (
+                  <rect
+                    x={Math.min(rectStart.x, rectPreviewEnd.x)}
+                    y={Math.min(rectStart.y, rectPreviewEnd.y)}
+                    width={Math.abs(rectPreviewEnd.x - rectStart.x)}
+                    height={Math.abs(rectPreviewEnd.y - rectStart.y)}
+                    fill="transparent"
+                    stroke="#6366f1"
+                    strokeWidth={2}
+                    strokeDasharray="6 3"
+                    rx={4}
+                    ry={4}
+                    opacity={0.6}
+                    style={{ pointerEvents: "none" }}
+                  />
+                )}
+
+                {/* Rect start indicator */}
+                {rectStart && (
+                  <circle
+                    cx={rectStart.x}
+                    cy={rectStart.y}
                     r={4}
                     fill="#6366f1"
                     opacity={0.8}
