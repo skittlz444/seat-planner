@@ -368,14 +368,14 @@ const GuestListPage = ({ onBack }: Props) => {
                 </div>
                 {arrivalModal.table.nickname && (
                   <p className="text-xs text-slate-500 italic ml-6 mb-2">
-                    &quot;{arrivalModal.table.nickname}&quot;
+                    "{arrivalModal.table.nickname}"
                   </p>
                 )}
                 <div className="text-xs text-slate-400 ml-6 mb-2">
                   Seat{" "}
-                  {(arrivalModal.table.guests.findIndex(
+                  {Math.max(0, arrivalModal.table.guests.findIndex(
                     (g) => g.id === arrivalModal.guest.id
-                  ) ?? 0) + 1}{" "}
+                  )) + 1}{" "}
                   of {arrivalModal.table.max_seats}
                 </div>
 
@@ -383,7 +383,7 @@ const GuestListPage = ({ onBack }: Props) => {
               </div>
             ) : (
               <div className="bg-amber-50 rounded-xl p-4 text-sm text-amber-700">
-                <strong>No table assigned yet.</strong> This guest doesn&apos;t
+                <strong>No table assigned yet.</strong> This guest doesn't
                 have a table assignment.
               </div>
             )}
