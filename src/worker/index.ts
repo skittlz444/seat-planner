@@ -170,6 +170,36 @@ api.put("/tables/:id", async (c) => {
   return c.json({ success: true });
 });
 
+// Reorder guests within a table
+api.put("/tables/:id/reorder", async (c) => {
+  const tableId = c.req.param("id");
+  const { guestIds } = await c.req.json<{ guestIds: string[] }>();
+
+  if (!guestIds || !Array.isArray(guestIds) || guestIds.length === 0) {
+    return c.json({ error: "guestIds must be a non-empty array" }, 400);
+  }
+
+  // Verify all guestIds belong to this table
+  const placeholders = guestIds.map(() => "?").join(",");
+  const { results } = await c.env.DB.prepare(
+    `SELECT id FROM guests WHERE table_id = ? AND id IN (${placeholders})`
+  ).bind(tableId, ...guestIds).all<{ id: string }>();
+
+  if (results.length !== guestIds.length) {
+    return c.json({ error: "Some guest IDs do not belong to this table" }, 400);
+  }
+
+  const statements = guestIds.map((guestId, index) =>
+    c.env.DB.prepare(
+      "UPDATE guests SET table_position = ? WHERE id = ? AND table_id = ?"
+    ).bind(index, guestId, tableId)
+  );
+
+  await c.env.DB.batch(statements);
+
+  return c.json({ success: true });
+});
+
 // Delete a table (unassigns all guests)
 api.delete("/tables/:id", async (c) => {
   const tableId = c.req.param("id");

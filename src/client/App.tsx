@@ -46,6 +46,12 @@ const App = () => {
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [editingGuestName, setEditingGuestName] = useState("");
   
+  // Drag reorder state
+  const [dropTarget, setDropTarget] = useState<{
+    tableId: string;
+    index: number;
+  } | null>(null);
+
   // Bulk add modal state
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [bulkAddNames, setBulkAddNames] = useState("");
@@ -294,6 +300,7 @@ const App = () => {
   const onDragEnd = (e: React.DragEvent) => {
     e.currentTarget.setAttribute("style", "opacity: 1");
     setDraggedGuestId(null);
+    setDropTarget(null);
   };
 
   const onDrop = async (e: React.DragEvent, toTableId: string | null) => {
@@ -301,6 +308,50 @@ const App = () => {
     if (!draggedGuestId) return;
 
     const { guestId, fromTableId } = draggedGuestId;
+
+    // Handle reordering within the same table
+    if (fromTableId === toTableId && toTableId !== null && dropTarget) {
+      const table = tables.find((t) => t.id === toTableId);
+      if (!table) return;
+
+      const currentIndex = table.guests.findIndex((g) => g.id === guestId);
+      if (currentIndex === -1) return;
+
+      let targetIndex = dropTarget.index;
+      if (targetIndex === currentIndex) {
+        setDropTarget(null);
+        return;
+      }
+
+      // Build new order
+      const newGuests = [...table.guests];
+      const [moved] = newGuests.splice(currentIndex, 1);
+      // Adjust target if it was after the removed item
+      if (targetIndex > currentIndex) targetIndex--;
+      newGuests.splice(targetIndex, 0, moved);
+
+      // Optimistic UI update
+      setTables((prev) =>
+        prev.map((t) =>
+          t.id === toTableId ? { ...t, guests: newGuests } : t
+        )
+      );
+      setDropTarget(null);
+
+      try {
+        const response = await fetch(`/api/tables/${toTableId}/reorder`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ guestIds: newGuests.map((g) => g.id) }),
+        });
+        if (!response.ok) throw new Error("Failed to reorder guests");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to reorder guests");
+        fetchData(); // Revert on error
+      }
+      return;
+    }
+
     if (fromTableId === toTableId) return;
 
     let guestToMove: Guest | undefined;
@@ -360,6 +411,34 @@ const App = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to move guest");
     }
+  };
+
+  const onGuestDragOver = (e: React.DragEvent, tableId: string, index: number) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedGuestId) return;
+
+    // Determine if we should insert before or after based on mouse position
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const insertIndex = e.clientY < midY ? index : index + 1;
+
+    if (!dropTarget || dropTarget.tableId !== tableId || dropTarget.index !== insertIndex) {
+      setDropTarget({ tableId, index: insertIndex });
+    }
+  };
+
+  const getGuestDropBorderClass = (tableId: string, guestId: string, guestIndex: number): string => {
+    if (
+      dropTarget &&
+      dropTarget.tableId === tableId &&
+      draggedGuestId &&
+      draggedGuestId.guestId !== guestId
+    ) {
+      if (dropTarget.index === guestIndex) return "border-t-2 border-t-indigo-500";
+      if (dropTarget.index === guestIndex + 1) return "border-b-2 border-b-indigo-500";
+    }
+    return "border border-slate-100";
   };
 
   const filteredUnassigned = guests.filter((g) =>
@@ -603,6 +682,12 @@ const App = () => {
               key={table.id}
               onDrop={(e) => onDrop(e, table.id)}
               onDragOver={(e) => e.preventDefault()}
+              onDragLeave={(e) => {
+                // Clear drop target when leaving the table container
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                  setDropTarget(null);
+                }
+              }}
               className={`bg-white rounded-2xl p-5 shadow-sm border-2 transition-all duration-150 ${
                 draggedGuestId
                   ? "border-indigo-200 bg-indigo-50/20"
@@ -673,14 +758,19 @@ const App = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-2 min-h-[140px] content-start">
-                {table.guests.map((guest) => (
+                {table.guests.map((guest, guestIndex) => (
                   <div
                     key={guest.id}
                     draggable={editingGuestId !== guest.id}
                     onMouseDown={() => primeDrag(guest.id, table.id)}
                     onDragStart={(e) => onDragStart(e, guest.id, table.id)}
                     onDragEnd={onDragEnd}
-                    className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100 cursor-grab active:cursor-grabbing hover:bg-white hover:shadow-md transition-all border-l-4 select-none"
+                    onDragOver={(e) => onGuestDragOver(e, table.id, guestIndex)}
+                    onDrop={(e) => {
+                      e.stopPropagation();
+                      onDrop(e, table.id);
+                    }}
+                    className={`flex items-center gap-2 bg-slate-50 p-2 rounded-lg border cursor-grab active:cursor-grabbing hover:bg-white hover:shadow-md transition-all border-l-4 select-none ${getGuestDropBorderClass(table.id, guest.id, guestIndex)}`}
                     style={{ borderLeftColor: guest.color }}
                   >
                     {editingGuestId === guest.id ? (
