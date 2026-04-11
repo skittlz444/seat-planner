@@ -9,6 +9,7 @@ import {
   Plus,
   ZoomIn,
   ZoomOut,
+  Check,
 } from "lucide-react";
 import type { Guest, Table } from "../shared/types";
 
@@ -492,10 +493,16 @@ const TableLayoutPage = ({ onBack }: Props) => {
                   <div className="flex-1 flex items-center gap-0.5 min-w-0">
                     {leftGuest ? (
                       <>
-                        <span
-                          className="inline-block w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: leftGuest.color }}
-                        />
+                        {leftGuest.arrived ? (
+                          <span className="inline-flex items-center justify-center w-2 h-2 rounded-full shrink-0 bg-green-500">
+                            <Check size={6} className="text-white" strokeWidth={4} />
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: leftGuest.color }}
+                          />
+                        )}
                         <span
                           className="truncate font-medium"
                           style={{ color: "#3d2b1f" }}
@@ -521,10 +528,16 @@ const TableLayoutPage = ({ onBack }: Props) => {
                         >
                           {rightGuest.name.charAt(0)}
                         </span>
-                        <span
-                          className="inline-block w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: rightGuest.color }}
-                        />
+                        {rightGuest.arrived ? (
+                          <span className="inline-flex items-center justify-center w-2 h-2 rounded-full shrink-0 bg-green-500">
+                            <Check size={6} className="text-white" strokeWidth={4} />
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: rightGuest.color }}
+                          />
+                        )}
                       </>
                     ) : (
                       <span className="w-2 h-2 rounded-full border border-amber-300 opacity-40 shrink-0" />
@@ -931,14 +944,24 @@ const TableLayoutPage = ({ onBack }: Props) => {
                   )}
                   {/* Guest preview dots */}
                   <div className="flex flex-wrap gap-0.5 mb-1.5">
-                    {table.guests.map((g) => (
-                      <span
-                        key={g.id}
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: g.color }}
-                        title={g.name}
-                      />
-                    ))}
+                    {table.guests.map((g) =>
+                      g.arrived ? (
+                        <span
+                          key={g.id}
+                          className="inline-flex items-center justify-center w-2 h-2 rounded-full bg-green-500"
+                          title={`${g.name} (arrived)`}
+                        >
+                          <Check size={6} className="text-white" strokeWidth={4} />
+                        </span>
+                      ) : (
+                        <span
+                          key={g.id}
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: g.color }}
+                          title={g.name}
+                        />
+                      )
+                    )}
                   </div>
                   {!onCanvas ? (
                     <button

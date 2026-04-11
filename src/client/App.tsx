@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
 import GuestListPage from "./GuestListPage";
 import type { Guest, Table, ColorGroup } from "../shared/types";
@@ -990,6 +990,9 @@ const App = () => {
                           {guest.name}
                         </span>
                       )}
+                      {!!guest.arrived && (
+                        <Check size={12} className="text-green-500 shrink-0" strokeWidth={3} />
+                      )}
                       <button
                         type="button"
                         onClick={(e) => {
@@ -1234,6 +1237,9 @@ const App = () => {
                       >
                         {guest.name}
                       </span>
+                    )}
+                    {!!guest.arrived && (
+                      <Check size={10} className="text-green-500 shrink-0" strokeWidth={3} />
                     )}
                     <button
                       type="button"
