@@ -453,7 +453,13 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
       const tableItem = item as CanvasTableItem;
       const table = tables.find((t) => t.id === tableItem.tableId);
-      const height = table ? getTableHeight(table.max_seats) : 100;
+      const height = table ? (() => {
+        const maxPos = table.guests.reduce(
+          (max, g) => (g.table_position != null && g.table_position > max ? g.table_position : max),
+          -1
+        );
+        return getTableHeight(Math.max(table.max_seats, table.guests.length, maxPos + 1));
+      })() : 100;
 
       // Center of the table in canvas coords
       const centerX = tableItem.x + TABLE_WIDTH / 2;
@@ -502,8 +508,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
   // ── Table dimensions ─────────────────────────────────────────────────────
 
-  const getTableHeight = (maxSeats: number) => {
-    const rows = Math.ceil(maxSeats / 2);
+  const getTableHeight = (slotCount: number) => {
+    const rows = Math.ceil(slotCount / 2);
     return TABLE_HEADER_HEIGHT + rows * ROW_HEIGHT + 4; // 4px bottom padding
   };
 
@@ -513,8 +519,13 @@ const TableLayoutPage = ({ onBack }: Props) => {
     const table = tables.find((t) => t.id === item.tableId);
     if (!table) return null;
 
-    const rows = Math.ceil(table.max_seats / 2);
-    const height = getTableHeight(table.max_seats);
+    const maxPos = table.guests.reduce(
+      (max, g) => (g.table_position != null && g.table_position > max ? g.table_position : max),
+      -1
+    );
+    const slotCount = Math.max(table.max_seats, table.guests.length, maxPos + 1);
+    const rows = Math.ceil(slotCount / 2);
+    const height = getTableHeight(slotCount);
     const isSelected = selectedId === item.id;
 
     return (

@@ -111,15 +111,24 @@ const App = () => {
             .filter((g: Guest) => g.table_id === t.id)
             .sort((a, b) => (a.table_position ?? Infinity) - (b.table_position ?? Infinity));
 
-          // Normalize: assign first available seat to guests with null/undefined table_position
+          // Normalize: assign first available seat to guests with null/undefined table_position.
+          // slotCount accounts for max_seats, guest count, and the highest existing
+          // position so that sparse/high positions from past capacity reductions
+          // remain addressable without renumbering.
+          const maxPosition = tableGuests.reduce(
+            (max, g) => (g.table_position != null && g.table_position > max ? g.table_position : max),
+            -1
+          );
+          const slotCount = Math.max(t.max_seats, tableGuests.length, maxPosition + 1);
+
           const usedPositions = new Set(
             tableGuests
               .map((g) => g.table_position)
-              .filter((p): p is number => p !== null && p !== undefined)
+              .filter((p): p is number => p !== null && p !== undefined && p >= 0 && p < slotCount)
           );
           let nextFree = 0;
           const normalized = tableGuests.map((g) => {
-            if (g.table_position === null || g.table_position === undefined) {
+            if (g.table_position === null || g.table_position === undefined || g.table_position < 0) {
               while (usedPositions.has(nextFree)) nextFree++;
               const assigned = nextFree;
               usedPositions.add(assigned);
@@ -164,6 +173,20 @@ const App = () => {
       maps[table.id] = map;
     }
     return maps;
+  }, [tables]);
+
+  // Precompute effective slot count per table: max of max_seats, guest count,
+  // and (highest table_position + 1) so sparse positions are always rendered.
+  const slotCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const table of tables) {
+      const maxPos = table.guests.reduce(
+        (max, g) => (g.table_position != null && g.table_position > max ? g.table_position : max),
+        -1
+      );
+      counts[table.id] = Math.max(table.max_seats, table.guests.length, maxPos + 1);
+    }
+    return counts;
   }, [tables]);
 
   const addGuest = async (e: React.FormEvent) => {
@@ -1160,7 +1183,11 @@ const App = () => {
                             : "bg-indigo-500"
                         }`}
                         style={{
-                          width: `${(table.guests.length / table.max_seats) * 100}%`,
+                          width: `${
+                            table.max_seats > 0
+                              ? Math.min((table.guests.length / table.max_seats) * 100, 100)
+                              : 0
+                          }%`,
                         }}
                       />
                     </div>
@@ -1211,7 +1238,7 @@ const App = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-2 min-h-[140px] content-start">
-                {Array.from({ length: table.max_seats }, (_, slotIndex) => {
+                {Array.from({ length: slotCounts[table.id] ?? table.max_seats }, (_, slotIndex) => {
                   const guest = seatMaps[table.id]?.get(slotIndex);
                   const isDropHighlight =
                     seatDropTarget &&

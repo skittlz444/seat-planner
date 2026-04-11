@@ -92,24 +92,70 @@ api.put("/guests/:id/move", async (c) => {
 
     // Get all occupied positions for this table (excluding the guest being moved)
     const { results: occupied } = await c.env.DB.prepare(
-      "SELECT table_position FROM guests WHERE table_id = ? AND id != ?"
-    ).bind(tableId, guestId).all<{ table_position: number | null }>();
+      "SELECT id, table_position FROM guests WHERE table_id = ? AND id != ?"
+    ).bind(tableId, guestId).all<{ id: string; table_position: number | null }>();
 
-    const occupiedSet = new Set(
-      occupied.map((r) => r.table_position).filter((p): p is number => p !== null)
-    );
+    const occupiedPositions = occupied
+      .map((r) => r.table_position)
+      .filter((p): p is number => p !== null);
+    const occupiedSet = new Set(occupiedPositions);
+
+    // Determine the effective slot count — accounts for max_seats, guest count,
+    // and the highest existing position (handles sparse positions from past
+    // capacity reductions).
+    const guestCount = occupied.length + 1; // +1 for the guest being moved
+    const maxOccupiedPosition = occupiedPositions.reduce((max, pos) => Math.max(max, pos), -1);
+    const slotCount = Math.max(tableRow.max_seats, guestCount, maxOccupiedPosition + 1);
 
     if (position !== undefined && position !== null) {
       // Specific seat requested – validate
-      if (!Number.isInteger(position) || position < 0 || position >= tableRow.max_seats) {
+      if (!Number.isInteger(position) || position < 0 || position >= slotCount) {
         return c.json({ error: "Position out of range" }, 400);
       }
+
       if (occupiedSet.has(position)) {
-        return c.json({ error: "Seat is already occupied" }, 409);
+        // Target seat is occupied — only allow swap for within-table moves
+        const currentGuest = await c.env.DB.prepare(
+          "SELECT table_id, table_position FROM guests WHERE id = ?"
+        ).bind(guestId).first<{ table_id: string | null; table_position: number | null }>();
+
+        if (!currentGuest || currentGuest.table_id !== tableId) {
+          return c.json({ error: "Seat is already occupied" }, 409);
+        }
+
+        // Find the guest sitting in the target seat (from our existing query)
+        const targetGuest = occupied.find((r) => r.table_position === position);
+        if (!targetGuest) {
+          return c.json({ error: "Seat is already occupied" }, 409);
+        }
+
+        const oldPosition = currentGuest.table_position;
+
+        // Atomic swap via batch: move target to temp position (-1), then
+        // place both guests in their final positions
+        try {
+          await c.env.DB.batch([
+            c.env.DB.prepare("UPDATE guests SET table_position = -1 WHERE id = ?")
+              .bind(targetGuest.id),
+            c.env.DB.prepare("UPDATE guests SET table_position = ? WHERE id = ?")
+              .bind(position, guestId),
+            c.env.DB.prepare("UPDATE guests SET table_position = ? WHERE id = ?")
+              .bind(oldPosition, targetGuest.id),
+          ]);
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : String(err);
+          if (message.includes("UNIQUE constraint failed")) {
+            return c.json({ error: "Seat swap failed due to conflict" }, 409);
+          }
+          throw err;
+        }
+
+        return c.json({ success: true, position });
       }
+
       tablePosition = position;
     } else {
-      // Find the first empty seat
+      // Find the first empty seat (only within max_seats for new assignments)
       for (let i = 0; i < tableRow.max_seats; i++) {
         if (!occupiedSet.has(i)) {
           tablePosition = i;
@@ -229,6 +275,11 @@ api.get("/tables", async (c) => {
 // Create a new table
 api.post("/tables", async (c) => {
   const { name, maxSeats = 16 } = await c.req.json<{ name: string; maxSeats?: number }>();
+
+  if (typeof maxSeats !== "number" || !Number.isFinite(maxSeats) || !Number.isInteger(maxSeats) || maxSeats < 1) {
+    return c.json({ error: "maxSeats must be a finite integer >= 1" }, 400);
+  }
+
   const id = generateId();
 
   // Get the max sort_order to place new table at end
