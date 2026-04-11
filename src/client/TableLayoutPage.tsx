@@ -122,7 +122,9 @@ const TableLayoutPage = ({ onBack }: Props) => {
       const tablesData: Array<{
         id: string;
         name: string;
+        nickname: string | null;
         max_seats: number;
+        sort_order: number;
       }> = await tablesRes.json();
 
       setTables(
@@ -452,7 +454,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
       >
         {/* Table rectangle */}
         <div
-          className={`w-full h-full rounded-lg border-2 overflow-hidden ${
+          className={`w-full h-full rounded-lg border-2 overflow-hidden relative ${
             isSelected
               ? "border-indigo-500 shadow-lg shadow-indigo-200"
               : "border-amber-700 shadow-md"
@@ -469,7 +471,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
               lineHeight: `${TABLE_HEADER_HEIGHT - 4}px`,
             }}
           >
-            {table.name}
+            {table.nickname || table.name}
             <span className="ml-1 font-normal opacity-70">
               {table.guests.length}/{table.max_seats}
             </span>
@@ -532,6 +534,41 @@ const TableLayoutPage = ({ onBack }: Props) => {
               );
             })}
           </div>
+
+          {/* Nickname running down the centre */}
+          {table.nickname && (
+            <div
+              className="absolute pointer-events-none"
+              style={{
+                top: TABLE_HEADER_HEIGHT,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <div
+                style={{
+                  writingMode: "vertical-rl",
+                  textOrientation: "mixed",
+                  transform: "rotate(180deg)",
+                  maxHeight: rows * ROW_HEIGHT,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                  fontSize: 9,
+                  fontWeight: 600,
+                  color: "#3d2b1f",
+                  opacity: 0.35,
+                  letterSpacing: "0.5px",
+                }}
+              >
+                {table.nickname}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Controls when selected */}
@@ -887,6 +924,11 @@ const TableLayoutPage = ({ onBack }: Props) => {
                       {table.guests.length}/{table.max_seats}
                     </span>
                   </div>
+                  {table.nickname && (
+                    <div className="text-[10px] text-slate-400 italic truncate mb-1">
+                      {table.nickname}
+                    </div>
+                  )}
                   {/* Guest preview dots */}
                   <div className="flex flex-wrap gap-0.5 mb-1.5">
                     {table.guests.map((g) => (

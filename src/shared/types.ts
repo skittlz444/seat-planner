@@ -9,6 +9,7 @@ export interface Guest {
 export interface Table {
   id: string;
   name: string;
+  nickname: string | null;
   max_seats: number;
   sort_order: number;
   guests: Guest[];

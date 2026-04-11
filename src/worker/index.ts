@@ -16,6 +16,7 @@ interface Guest {
 interface Table {
   id: string;
   name: string;
+  nickname: string | null;
   max_seats: number;
   sort_order: number;
 }
@@ -156,7 +157,7 @@ api.delete("/guests/:id", async (c) => {
 // Get all tables
 api.get("/tables", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, max_seats, sort_order FROM tables ORDER BY sort_order, id"
+    "SELECT id, name, nickname, max_seats, sort_order FROM tables ORDER BY sort_order, id"
   ).all<Table>();
   return c.json(results);
 });
@@ -172,11 +173,11 @@ api.post("/tables", async (c) => {
   ).all<{ max_order: number | null }>();
   const sortOrder = (maxResult[0]?.max_order ?? -1) + 1;
 
-  await c.env.DB.prepare("INSERT INTO tables (id, name, max_seats, sort_order) VALUES (?, ?, ?, ?)")
+  await c.env.DB.prepare("INSERT INTO tables (id, name, nickname, max_seats, sort_order) VALUES (?, ?, NULL, ?, ?)")
     .bind(id, name, maxSeats, sortOrder)
     .run();
 
-  return c.json({ id, name, max_seats: maxSeats, sort_order: sortOrder }, 201);
+  return c.json({ id, name, nickname: null, max_seats: maxSeats, sort_order: sortOrder }, 201);
 });
 
 // Reorder tables
@@ -219,18 +220,49 @@ api.put("/tables/reorder", async (c) => {
   return c.json({ success: true });
 });
 
-// Update a table's max_seats
+// Update a table's properties (max_seats and/or nickname)
 api.put("/tables/:id", async (c) => {
   const tableId = c.req.param("id");
-  const { maxSeats } = await c.req.json<{ maxSeats: number }>();
+  const body = await c.req.json<{ maxSeats?: number; nickname?: string | null }>();
 
-  if (!maxSeats || maxSeats < 1) {
+  const { maxSeats, nickname } = body;
+
+  if (
+    maxSeats !== undefined &&
+    (typeof maxSeats !== "number" ||
+      !Number.isFinite(maxSeats) ||
+      !Number.isInteger(maxSeats))
+  ) {
+    return c.json({ error: "maxSeats must be a finite integer" }, 400);
+  }
+
+  if (maxSeats !== undefined && maxSeats < 1) {
     return c.json({ error: "maxSeats must be at least 1" }, 400);
   }
 
-  await c.env.DB.prepare("UPDATE tables SET max_seats = ? WHERE id = ?")
-    .bind(maxSeats, tableId)
-    .run();
+  if (nickname !== undefined && nickname !== null && typeof nickname !== "string") {
+    return c.json({ error: "nickname must be a string or null" }, 400);
+  }
+
+  const trimmedNickname = nickname !== undefined
+    ? (nickname !== null ? nickname.trim() || null : null)
+    : undefined;
+
+  if (maxSeats !== undefined && trimmedNickname !== undefined) {
+    await c.env.DB.prepare("UPDATE tables SET max_seats = ?, nickname = ? WHERE id = ?")
+      .bind(maxSeats, trimmedNickname, tableId)
+      .run();
+  } else if (maxSeats !== undefined) {
+    await c.env.DB.prepare("UPDATE tables SET max_seats = ? WHERE id = ?")
+      .bind(maxSeats, tableId)
+      .run();
+  } else if (trimmedNickname !== undefined) {
+    await c.env.DB.prepare("UPDATE tables SET nickname = ? WHERE id = ?")
+      .bind(trimmedNickname, tableId)
+      .run();
+  } else {
+    return c.json({ error: "At least one of maxSeats or nickname is required" }, 400);
+  }
 
   return c.json({ success: true });
 });
