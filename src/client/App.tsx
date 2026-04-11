@@ -16,6 +16,7 @@ interface Table {
   id: string;
   name: string;
   max_seats: number;
+  sort_order: number;
   guests: Guest[];
 }
 
@@ -57,6 +58,10 @@ const App = () => {
   const [bulkAddNames, setBulkAddNames] = useState("");
   const [bulkAddColor, setBulkAddColor] = useState("#3b82f6");
 
+  // Table drag reorder state
+  const [draggedTableId, setDraggedTableId] = useState<string | null>(null);
+  const [tableDropTarget, setTableDropTarget] = useState<number | null>(null);
+
   const showNotification = (message: string) => {
     setNotification(message);
     setTimeout(() => setNotification(null), 3000);
@@ -86,11 +91,11 @@ const App = () => {
       }
 
       const guestsData: Guest[] = await guestsRes.json();
-      const tablesData: Array<{ id: string; name: string; max_seats: number }> = await tablesRes.json();
+      const tablesData: Array<{ id: string; name: string; max_seats: number; sort_order: number }> = await tablesRes.json();
 
       setGuests(guestsData.filter((g: Guest) => !g.table_id));
       setTables(
-        tablesData.map((t: { id: string; name: string; max_seats: number }) => ({
+        tablesData.map((t: { id: string; name: string; max_seats: number; sort_order: number }) => ({
           ...t,
           guests: guestsData
             .filter((g: Guest) => g.table_id === t.id)
@@ -141,7 +146,7 @@ const App = () => {
 
       if (!response.ok) throw new Error("Failed to add table");
 
-      const newTable: { id: string; name: string; max_seats: number } = await response.json();
+      const newTable: { id: string; name: string; max_seats: number; sort_order: number } = await response.json();
       setTables((prev) => [...prev, { ...newTable, guests: [] }]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to add table");
@@ -458,6 +463,87 @@ const App = () => {
     return baseBorderClass;
   };
 
+  // Table drag-to-reorder handlers
+  const onTableDragStart = (e: React.DragEvent, tableId: string) => {
+    setDraggedTableId(tableId);
+    e.dataTransfer.setData("text/plain", `table:${tableId}`);
+    e.dataTransfer.effectAllowed = "move";
+    e.currentTarget.setAttribute("style", "opacity: 0.4");
+  };
+
+  const onTableDragEnd = (e: React.DragEvent) => {
+    e.currentTarget.setAttribute("style", "opacity: 1");
+    setDraggedTableId(null);
+    setTableDropTarget(null);
+  };
+
+  const onTableDragOver = (e: React.DragEvent, tableIndex: number) => {
+    if (!draggedTableId) return;
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const midY = rect.top + rect.height / 2;
+    const insertIndex = e.clientY < midY ? tableIndex : tableIndex + 1;
+
+    if (tableDropTarget !== insertIndex) {
+      setTableDropTarget(insertIndex);
+    }
+  };
+
+  const onTableDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!draggedTableId || tableDropTarget === null) return;
+
+    const currentIndex = tables.findIndex((t) => t.id === draggedTableId);
+    if (currentIndex === -1) return;
+
+    let targetIndex = tableDropTarget;
+    const newTables = [...tables];
+    const [moved] = newTables.splice(currentIndex, 1);
+    if (targetIndex > currentIndex) targetIndex--;
+
+    if (targetIndex === currentIndex) {
+      setDraggedTableId(null);
+      setTableDropTarget(null);
+      return;
+    }
+
+    newTables.splice(targetIndex, 0, moved);
+
+    // Optimistic UI update
+    setTables(newTables);
+    setDraggedTableId(null);
+    setTableDropTarget(null);
+
+    try {
+      const response = await fetch("/api/tables/reorder", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tableIds: newTables.map((t) => t.id) }),
+      });
+      if (!response.ok) throw new Error("Failed to reorder tables");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reorder tables");
+      fetchData(); // Revert on error
+    }
+  };
+
+  const getTableDropBorderClass = (tableIndex: number): string => {
+    if (!draggedTableId || tableDropTarget === null) return "";
+    const draggedIndex = tables.findIndex((t) => t.id === draggedTableId);
+    if (draggedIndex === tableIndex) return "";
+
+    if (tableDropTarget === tableIndex) {
+      return "border-t-4 border-t-indigo-500";
+    }
+    if (tableDropTarget === tableIndex + 1) {
+      return "border-b-4 border-b-indigo-500";
+    }
+    return "";
+  };
+
   const filteredUnassigned = guests.filter((g) =>
     g.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -694,26 +780,61 @@ const App = () => {
 
         {/* Tables area */}
         <section className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-          {tables.map((table) => (
+          {tables.map((table, tableIndex) => (
             <div
               key={table.id}
-              onDrop={(e) => onDrop(e, table.id)}
-              onDragOver={(e) => e.preventDefault()}
+              onDragOver={(e) => {
+                if (draggedTableId) {
+                  onTableDragOver(e, tableIndex);
+                } else {
+                  e.preventDefault();
+                }
+              }}
+              onDrop={(e) => {
+                if (draggedTableId) {
+                  onTableDrop(e);
+                } else {
+                  onDrop(e, table.id);
+                }
+              }}
               onDragLeave={(e) => {
-                // Clear drop target when leaving the table container
-                if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                  setDropTarget(null);
+                if (draggedTableId) {
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setTableDropTarget(null);
+                  }
+                } else {
+                  // Clear drop target when leaving the table container
+                  if (!e.currentTarget.contains(e.relatedTarget as Node)) {
+                    setDropTarget(null);
+                  }
                 }
               }}
               className={`bg-white rounded-2xl p-5 shadow-sm border-2 transition-all duration-150 ${
                 draggedGuestId
                   ? "border-indigo-200 bg-indigo-50/20"
+                  : draggedTableId && draggedTableId !== table.id
+                  ? "border-indigo-200 bg-indigo-50/20"
                   : "border-white"
-              }`}
+              } ${getTableDropBorderClass(tableIndex)}`}
             >
               <div className="flex justify-between items-center mb-4">
-                <div className="flex-1">
-                  <h3 className="text-md font-bold text-slate-800">
+                <div
+                  draggable={!draggedGuestId}
+                  onDragStart={(e) => {
+                    if (draggedGuestId) return;
+                    onTableDragStart(e, table.id);
+                  }}
+                  onDragEnd={(e) => {
+                    if (draggedTableId) onTableDragEnd(e);
+                  }}
+                  className="flex items-center gap-2 flex-1 cursor-grab active:cursor-grabbing"
+                >
+                  <GripVertical
+                    size={16}
+                    className="text-slate-300 shrink-0"
+                  />
+                  <div className="flex-1">
+                    <h3 className="text-md font-bold text-slate-800">
                     {table.name}
                   </h3>
                   <div className="flex items-center gap-2 mt-1">
@@ -765,6 +886,7 @@ const App = () => {
                     )}
                   </div>
                 </div>
+                </div>
                 <button
                   onClick={() => removeTable(table.id)}
                   className="p-2 text-slate-200 hover:text-red-400 hover:bg-red-50 rounded-lg transition-all"
@@ -780,7 +902,10 @@ const App = () => {
                     key={guest.id}
                     draggable={editingGuestId !== guest.id}
                     onMouseDown={() => primeDrag(guest.id, table.id)}
-                    onDragStart={(e) => onDragStart(e, guest.id, table.id)}
+                    onDragStart={(e) => {
+                      e.stopPropagation();
+                      onDragStart(e, guest.id, table.id);
+                    }}
                     onDragEnd={onDragEnd}
                     onDragOver={(e) => onGuestDragOver(e, table.id, guestIndex)}
                     onDrop={(e) => {

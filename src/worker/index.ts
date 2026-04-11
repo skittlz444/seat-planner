@@ -17,6 +17,7 @@ interface Table {
   id: string;
   name: string;
   max_seats: number;
+  sort_order: number;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -137,7 +138,7 @@ api.delete("/guests/:id", async (c) => {
 // Get all tables
 api.get("/tables", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, max_seats FROM tables ORDER BY LENGTH(name), name"
+    "SELECT id, name, max_seats, sort_order FROM tables ORDER BY sort_order, id"
   ).all<Table>();
   return c.json(results);
 });
@@ -147,11 +148,57 @@ api.post("/tables", async (c) => {
   const { name, maxSeats = 16 } = await c.req.json<{ name: string; maxSeats?: number }>();
   const id = generateId();
 
-  await c.env.DB.prepare("INSERT INTO tables (id, name, max_seats) VALUES (?, ?, ?)")
-    .bind(id, name, maxSeats)
+  // Get the max sort_order to place new table at end
+  const { results: maxResult } = await c.env.DB.prepare(
+    "SELECT MAX(sort_order) as max_order FROM tables"
+  ).all<{ max_order: number | null }>();
+  const sortOrder = (maxResult[0]?.max_order ?? -1) + 1;
+
+  await c.env.DB.prepare("INSERT INTO tables (id, name, max_seats, sort_order) VALUES (?, ?, ?, ?)")
+    .bind(id, name, maxSeats, sortOrder)
     .run();
 
-  return c.json({ id, name, max_seats: maxSeats }, 201);
+  return c.json({ id, name, max_seats: maxSeats, sort_order: sortOrder }, 201);
+});
+
+// Reorder tables
+api.put("/tables/reorder", async (c) => {
+  const { tableIds } = await c.req.json<{ tableIds: string[] }>();
+
+  if (!tableIds || !Array.isArray(tableIds) || tableIds.length === 0) {
+    return c.json({ error: "tableIds must be a non-empty array" }, 400);
+  }
+
+  // Reject duplicate table IDs
+  if (new Set(tableIds).size !== tableIds.length) {
+    return c.json({ error: "tableIds must not contain duplicates" }, 400);
+  }
+
+  // Verify tableIds is a complete permutation of all tables
+  const { results: allTables } = await c.env.DB.prepare(
+    "SELECT id FROM tables"
+  ).all<{ id: string }>();
+
+  if (allTables.length !== tableIds.length) {
+    return c.json({ error: "tableIds must include all tables" }, 400);
+  }
+
+  const allTableIdSet = new Set(allTables.map((t) => t.id));
+  for (const id of tableIds) {
+    if (!allTableIdSet.has(id)) {
+      return c.json({ error: "Some table IDs do not exist" }, 400);
+    }
+  }
+
+  const statements = tableIds.map((tableId, index) =>
+    c.env.DB.prepare(
+      "UPDATE tables SET sort_order = ? WHERE id = ?"
+    ).bind(index, tableId)
+  );
+
+  await c.env.DB.batch(statements);
+
+  return c.json({ success: true });
 });
 
 // Update a table's max_seats
