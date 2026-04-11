@@ -961,7 +961,13 @@ const TableLayoutPage = ({ onBack }: Props) => {
                           role="img"
                           aria-label={`${g.name} arrived`}
                         >
-                          <Check size={7} className="text-white" strokeWidth={4} aria-hidden="true" />
+                          <Check
+                            size={7}
+                            className="text-white"
+                            strokeWidth={4}
+                            aria-hidden="true"
+                            focusable="false"
+                          />
                         </span>
                       ) : (
                         <span

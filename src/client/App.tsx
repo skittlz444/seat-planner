@@ -1234,7 +1234,10 @@ const App = () => {
                     ) : (
                       <>
                         {!!guest.arrived && (
-                          <Check size={10} className="text-green-500 shrink-0" strokeWidth={3} role="img" aria-label="Arrived" />
+                          <span className="shrink-0 inline-flex items-center">
+                            <Check size={10} className="text-green-500" strokeWidth={3} aria-hidden="true" />
+                            <span className="sr-only">Arrived</span>
+                          </span>
                         )}
                         <span
                           className="text-[11px] font-bold truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
