@@ -783,15 +783,6 @@ const App = () => {
           {tables.map((table, tableIndex) => (
             <div
               key={table.id}
-              draggable={!draggedGuestId}
-              onDragStart={(e) => {
-                // Only start table drag if not dragging a guest
-                if (draggedGuestId) return;
-                onTableDragStart(e, table.id);
-              }}
-              onDragEnd={(e) => {
-                if (draggedTableId) onTableDragEnd(e);
-              }}
               onDragOver={(e) => {
                 if (draggedTableId) {
                   onTableDragOver(e, tableIndex);
@@ -827,7 +818,17 @@ const App = () => {
               } ${getTableDropBorderClass(tableIndex)}`}
             >
               <div className="flex justify-between items-center mb-4">
-                <div className="flex items-center gap-2 flex-1 cursor-grab active:cursor-grabbing">
+                <div
+                  draggable={!draggedGuestId}
+                  onDragStart={(e) => {
+                    if (draggedGuestId) return;
+                    onTableDragStart(e, table.id);
+                  }}
+                  onDragEnd={(e) => {
+                    if (draggedTableId) onTableDragEnd(e);
+                  }}
+                  className="flex items-center gap-2 flex-1 cursor-grab active:cursor-grabbing"
+                >
                   <GripVertical
                     size={16}
                     className="text-slate-300 shrink-0"
