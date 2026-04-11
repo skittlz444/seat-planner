@@ -7,10 +7,7 @@ interface Props {
 }
 
 interface ShuttleGuest extends Omit<Guest, "arrived"> {
-  table_id: string | null;
-  table_position?: number | null;
   arrived: boolean;
-  shuttle_time: string | null;
 }
 
 interface TableInfo {
@@ -275,8 +272,10 @@ const ShuttlePage = ({ onBack }: Props) => {
                                   onKeyDown={(e) => {
                                     if (e.key === "Enter")
                                       saveShuttleTime(guest.id);
-                                    if (e.key === "Escape")
+                                    if (e.key === "Escape") {
                                       setEditingGuestId(null);
+                                      setTempShuttleTime("");
+                                    }
                                   }}
                                   className="px-2 py-1 text-sm border border-slate-200 rounded-md w-24 focus:ring-2 focus:ring-indigo-500 outline-none"
                                   autoFocus
@@ -377,8 +376,10 @@ const ShuttlePage = ({ onBack }: Props) => {
                                 onKeyDown={(e) => {
                                   if (e.key === "Enter")
                                     saveShuttleTime(guest.id);
-                                  if (e.key === "Escape")
+                                  if (e.key === "Escape") {
                                     setEditingGuestId(null);
+                                    setTempShuttleTime("");
+                                  }
                                 }}
                                 className="px-2 py-1 text-sm border border-slate-200 rounded-md w-24 focus:ring-2 focus:ring-indigo-500 outline-none"
                                 autoFocus
@@ -392,7 +393,10 @@ const ShuttlePage = ({ onBack }: Props) => {
                                 <Clock size={14} />
                               </button>
                               <button
-                                onClick={() => setEditingGuestId(null)}
+                                onClick={() => {
+                                  setEditingGuestId(null);
+                                  setTempShuttleTime("");
+                                }}
                                 className="p-1 text-slate-400 hover:bg-slate-100 rounded"
                                 aria-label="Cancel"
                               >
