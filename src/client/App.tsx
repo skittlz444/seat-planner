@@ -46,6 +46,9 @@ const App = () => {
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [editingGuestName, setEditingGuestName] = useState("");
   
+  // Edit guest color state
+  const [editingColorGuestId, setEditingColorGuestId] = useState<string | null>(null);
+  
   // Drag reorder state
   const [dropTarget, setDropTarget] = useState<{
     tableId: string;
@@ -223,6 +226,70 @@ const App = () => {
       saveGuestName(guestId, tableId);
     } else if (e.key === "Escape") {
       setEditingGuestId(null);
+    }
+  };
+
+  // Delete guest
+  const deleteGuest = async (guestId: string, tableId: string | null) => {
+    try {
+      const response = await fetch(`/api/guests/${guestId}`, {
+        method: "DELETE",
+      });
+
+      if (!response.ok) throw new Error("Failed to delete guest");
+
+      if (tableId === null) {
+        setGuests((prev) => prev.filter((g) => g.id !== guestId));
+      } else {
+        setTables((prev) =>
+          prev.map((t) =>
+            t.id === tableId
+              ? { ...t, guests: t.guests.filter((g) => g.id !== guestId) }
+              : t
+          )
+        );
+      }
+      showNotification("Guest deleted");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete guest");
+    }
+  };
+
+  // Change guest color
+  const changeGuestColor = async (guestId: string, tableId: string | null, newColor: string) => {
+    try {
+      const response = await fetch(`/api/guests/${guestId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ color: newColor }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update guest color");
+
+      if (tableId === null) {
+        setGuests((prev) =>
+          prev.map((g) =>
+            g.id === guestId ? { ...g, color: newColor } : g
+          )
+        );
+      } else {
+        setTables((prev) =>
+          prev.map((t) =>
+            t.id === tableId
+              ? {
+                  ...t,
+                  guests: t.guests.map((g) =>
+                    g.id === guestId ? { ...g, color: newColor } : g
+                  ),
+                }
+              : t
+          )
+        );
+      }
+      setEditingColorGuestId(null);
+      showNotification("Guest color updated");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update guest color");
     }
   };
 
@@ -655,10 +722,37 @@ const App = () => {
                         size={14}
                         className="text-slate-300 shrink-0"
                       />
-                      <div
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: guest.color }}
-                      />
+                      <div className="relative shrink-0">
+                        <div
+                          className="w-2.5 h-2.5 rounded-full cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-all"
+                          style={{ backgroundColor: guest.color }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingColorGuestId(editingColorGuestId === guest.id ? null : guest.id);
+                          }}
+                          title="Click to change color"
+                        />
+                        {editingColorGuestId === guest.id && (
+                          <div className="absolute top-5 left-0 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-2 flex flex-wrap gap-1.5 w-[120px]"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {groupColors.map((c) => (
+                              <button
+                                key={c.hex}
+                                type="button"
+                                onClick={() => changeGuestColor(guest.id, null, c.hex)}
+                                className={`w-5 h-5 rounded-full border-2 transition-all ${
+                                  guest.color === c.hex
+                                    ? "border-slate-800 scale-110"
+                                    : "border-transparent hover:border-slate-300"
+                                }`}
+                                style={{ backgroundColor: c.hex }}
+                                title={c.name}
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
                       {editingGuestId === guest.id ? (
                         <input
                           type="text"
@@ -679,6 +773,16 @@ const App = () => {
                           {guest.name}
                         </span>
                       )}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteGuest(guest.id, null);
+                        }}
+                        className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
+                        title="Delete guest"
+                      >
+                        <X size={12} />
+                      </button>
                     </div>
                   ))}
                   {filteredUnassigned.length === 0 && (
@@ -790,6 +894,37 @@ const App = () => {
                     className={`flex items-center gap-2 bg-slate-50 p-2 rounded-lg border cursor-grab active:cursor-grabbing hover:bg-white hover:shadow-md transition-all border-l-4 select-none ${getGuestDropBorderClass(table.id, guest.id, guestIndex)}`}
                     style={{ borderLeftColor: guest.color }}
                   >
+                    <div className="relative shrink-0">
+                      <div
+                        className="w-2 h-2 rounded-full cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-all"
+                        style={{ backgroundColor: guest.color }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingColorGuestId(editingColorGuestId === guest.id ? null : guest.id);
+                        }}
+                        title="Click to change color"
+                      />
+                      {editingColorGuestId === guest.id && (
+                        <div className="absolute top-4 left-0 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-2 flex flex-wrap gap-1.5 w-[120px]"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          {groupColors.map((c) => (
+                            <button
+                              key={c.hex}
+                              type="button"
+                              onClick={() => changeGuestColor(guest.id, table.id, c.hex)}
+                              className={`w-5 h-5 rounded-full border-2 transition-all ${
+                                guest.color === c.hex
+                                  ? "border-slate-800 scale-110"
+                                  : "border-transparent hover:border-slate-300"
+                              }`}
+                              style={{ backgroundColor: c.hex }}
+                              title={c.name}
+                            />
+                          ))}
+                        </div>
+                      )}
+                    </div>
                     {editingGuestId === guest.id ? (
                       <input
                         type="text"
@@ -810,6 +945,16 @@ const App = () => {
                         {guest.name}
                       </span>
                     )}
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteGuest(guest.id, table.id);
+                      }}
+                      className="p-0.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
+                      title="Delete guest"
+                    >
+                      <X size={10} />
+                    </button>
                   </div>
                 ))}
 

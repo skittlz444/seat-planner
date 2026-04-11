@@ -75,18 +75,32 @@ api.put("/guests/:id/move", async (c) => {
   return c.json({ success: true });
 });
 
-// Update a guest's name
+// Update a guest's name and/or color
 api.put("/guests/:id", async (c) => {
   const guestId = c.req.param("id");
-  const { name } = await c.req.json<{ name: string }>();
+  const { name, color } = await c.req.json<{ name?: string; color?: string }>();
 
-  if (!name || !name.trim()) {
-    return c.json({ error: "Name is required" }, 400);
+  if (name !== undefined && (!name || !name.trim())) {
+    return c.json({ error: "Name cannot be empty" }, 400);
   }
 
-  await c.env.DB.prepare("UPDATE guests SET name = ? WHERE id = ?")
-    .bind(name.trim(), guestId)
-    .run();
+  if (name === undefined && color === undefined) {
+    return c.json({ error: "At least one of name or color is required" }, 400);
+  }
+
+  if (name !== undefined && color !== undefined) {
+    await c.env.DB.prepare("UPDATE guests SET name = ?, color = ? WHERE id = ?")
+      .bind(name.trim(), color, guestId)
+      .run();
+  } else if (name !== undefined) {
+    await c.env.DB.prepare("UPDATE guests SET name = ? WHERE id = ?")
+      .bind(name.trim(), guestId)
+      .run();
+  } else if (color !== undefined) {
+    await c.env.DB.prepare("UPDATE guests SET color = ? WHERE id = ?")
+      .bind(color, guestId)
+      .run();
+  }
 
   return c.json({ success: true });
 });
