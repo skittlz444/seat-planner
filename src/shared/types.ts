@@ -10,5 +10,6 @@ export interface Table {
   id: string;
   name: string;
   max_seats: number;
+  sort_order: number;
   guests: Guest[];
 }
