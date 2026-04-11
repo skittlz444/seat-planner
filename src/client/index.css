@@ -39,4 +39,89 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /* Tailwind print:hidden utility */
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* Preserve colors in print */
+  body {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* ── Planner main view: print-friendly tables ─────────────── */
+
+  /* Hide interactive / non-essential elements (scoped to planner) */
+  body:has(.planner-page) header button,
+  body:has(.planner-page) header .flex.gap-2,
+  .fixed,
+  [aria-label*="Delete"],
+  button[title="Remove Table"] {
+    display: none !important;
+  }
+
+  /* Hide total guests count in planner header only */
+  body:has(.planner-page) header p {
+    display: none !important;
+  }
+
+  /* Hide table nicknames, capacity bar, and seat counts in planner */
+  button[title="Click to edit nickname"],
+  span[title="Click to edit capacity"] {
+    display: none !important;
+  }
+
+  /* Hide sidebar (Guest Manager panel) */
+  .planner-page > section:first-child {
+    display: none !important;
+  }
+
+  /* Let the tables section span the full width */
+  .planner-page {
+    display: block !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Tables grid: two columns side-by-side, each constrained */
+  .planner-page > section:last-child {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+    align-items: start !important;
+  }
+
+  /* Each table card: avoid page break, constrained width */
+  .planner-page > section:last-child > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 8px !important;
+  }
+
+  /* Keep 2-column guest layout inside each table */
+  .grid-cols-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Hide the "Add New Table" button card */
+  .planner-page > section:last-child > button {
+    display: none !important;
+  }
+
+  /* Reset page margins and background */
+  body {
+    background: white !important;
+  }
+
+  /* Remove outer padding */
+  .min-h-screen {
+    padding: 8px !important;
+    min-height: auto !important;
+  }
 }
