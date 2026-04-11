@@ -239,49 +239,75 @@ const GuestListPage = ({ onBack }: Props) => {
   const totalGuests = allGuests.length;
   const arrivedCount = allGuests.filter((g) => g.arrived).length;
 
-  // Mini table visualization for modal
+  // Mini table visualization for modal – 2-column layout matching planner view
   const renderMiniTable = (table: TableInfo, highlightGuestId: string) => {
-    const maxSeats = table.max_seats;
-    const half = Math.ceil(maxSeats / 2);
-    const topSeats = Array.from({ length: half }, (_, i) => i);
-    const bottomSeats = Array.from({ length: maxSeats - half }, (_, i) => half + i);
-
-    const getSeatGuest = (seatIndex: number) =>
-      table.guests[seatIndex] ?? null;
-
-    const renderSeat = (seatIndex: number) => {
-      const g = getSeatGuest(seatIndex);
-      const isHighlighted = g?.id === highlightGuestId;
-      return (
-        <div
-          key={seatIndex}
-          className={`w-8 h-8 rounded-full flex items-center justify-center text-[8px] font-bold border-2 transition-all ${
-            isHighlighted
-              ? "border-indigo-500 bg-indigo-100 text-indigo-700 scale-125 shadow-lg ring-2 ring-indigo-300"
-              : g
-              ? "border-slate-200 bg-slate-50 text-slate-500"
-              : "border-dashed border-slate-200 bg-white text-slate-300"
-          }`}
-          style={g && !isHighlighted ? { borderColor: g.color, backgroundColor: `${g.color}15` } : undefined}
-          title={g ? g.name : `Seat ${seatIndex + 1}`}
-        >
-          {g ? g.name.charAt(0).toUpperCase() : ""}
-        </div>
-      );
-    };
+    const rows = Math.ceil(table.max_seats / 2);
 
     return (
-      <div className="flex flex-col items-center gap-2 my-4">
-        <div className="flex gap-1.5 justify-center">
-          {topSeats.map(renderSeat)}
-        </div>
-        <div className="w-full max-w-[200px] h-8 bg-slate-700 rounded-lg flex items-center justify-center">
-          <span className="text-[9px] font-bold text-white tracking-wider">
-            {table.name}
+      <div className="my-4 mx-auto w-full max-w-[260px] rounded-lg border-2 border-amber-700 overflow-hidden" style={{ backgroundColor: "#f5e6d3" }}>
+        {/* Header */}
+        <div
+          className="px-2 py-1.5 text-center font-bold text-xs truncate"
+          style={{ backgroundColor: "#d4a574", color: "#3d2b1f" }}
+        >
+          {table.nickname || table.name}
+          <span className="ml-1 font-normal opacity-70">
+            {table.guests.length}/{table.max_seats}
           </span>
         </div>
-        <div className="flex gap-1.5 justify-center">
-          {bottomSeats.map(renderSeat)}
+
+        {/* Guest rows */}
+        <div className="px-2 py-1" style={{ fontSize: 11 }}>
+          {Array.from({ length: rows }).map((_, rowIdx) => {
+            const leftGuest = table.guests[rowIdx * 2];
+            const rightGuest = table.guests[rowIdx * 2 + 1];
+
+            const renderSide = (guest: AllGuest | undefined, side: "left" | "right", seatIndex: number) => {
+              if (!guest) {
+                return (
+                  <span className="w-2.5 h-2.5 rounded-full border border-amber-300 opacity-40 shrink-0" title={`Seat ${seatIndex + 1}`} />
+                );
+              }
+              const isHighlighted = guest.id === highlightGuestId;
+              const dot = (
+                <span
+                  className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${isHighlighted ? "ring-2 ring-indigo-400" : ""}`}
+                  style={{ backgroundColor: guest.color }}
+                />
+              );
+              const name = (
+                <span
+                  className={`truncate font-medium ${isHighlighted ? "text-indigo-700 font-bold" : ""}`}
+                  style={!isHighlighted ? { color: "#3d2b1f" } : undefined}
+                  title={guest.name}
+                >
+                  {guest.name}
+                </span>
+              );
+              return side === "left" ? <>{dot}{name}</> : <>{name}{dot}</>;
+            };
+
+            return (
+              <div
+                key={rowIdx}
+                className="flex items-center"
+                style={{ height: 22 }}
+              >
+                {/* Left side */}
+                <div className="flex-1 flex items-center gap-1 min-w-0">
+                  {renderSide(leftGuest, "left", rowIdx * 2)}
+                </div>
+
+                {/* Divider */}
+                <div className="w-px h-3 bg-amber-400 opacity-40 mx-1" />
+
+                {/* Right side */}
+                <div className="flex-1 flex items-center gap-1 justify-end min-w-0">
+                  {renderSide(rightGuest, "right", rowIdx * 2 + 1)}
+                </div>
+              </div>
+            );
+          })}
         </div>
       </div>
     );
