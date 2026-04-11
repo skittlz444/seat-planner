@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Check, RotateCcw, Undo2, X, MapPin } from "lucide-react";
+import { ArrowLeft, Check, RotateCcw, Undo2, X, MapPin, Search } from "lucide-react";
 import type { Guest, ColorGroup } from "../shared/types";
 
 interface Props {
@@ -35,6 +35,9 @@ const GuestListPage = ({ onBack }: Props) => {
 
   // Notification timer ref
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Search state
+  const [searchTerm, setSearchTerm] = useState("");
 
   // Arrival modal state
   const [arrivalModal, setArrivalModal] = useState<{
@@ -221,15 +224,33 @@ const GuestListPage = ({ onBack }: Props) => {
     return group ? group.name : hex;
   };
 
-  const groupedByColor = allGuests.reduce<Record<string, AllGuest[]>>(
-    (acc, guest) => {
-      const key = guest.color;
-      if (!acc[key]) acc[key] = [];
-      acc[key].push(guest);
-      return acc;
-    },
-    {}
-  );
+  const groupedByColor = allGuests
+    .filter((g) => {
+      if (!searchTerm.trim()) return true;
+      const term = searchTerm.toLowerCase();
+      return (
+        g.name.toLowerCase().includes(term) ||
+        getColorGroupName(g.color).toLowerCase().includes(term) ||
+        (g.table_id &&
+          (() => {
+            const t = tables.find((t) => t.id === g.table_id);
+            if (!t) return false;
+            return (
+              t.name.toLowerCase().includes(term) ||
+              (t.nickname && t.nickname.toLowerCase().includes(term))
+            );
+          })())
+      );
+    })
+    .reduce<Record<string, AllGuest[]>>(
+      (acc, guest) => {
+        const key = guest.color;
+        if (!acc[key]) acc[key] = [];
+        acc[key].push(guest);
+        return acc;
+      },
+      {}
+    );
 
   // Sort groups by name
   const sortedColorKeys = Object.keys(groupedByColor).sort((a, b) =>
@@ -488,6 +509,26 @@ const GuestListPage = ({ onBack }: Props) => {
               <RotateCcw size={16} /> Reset
             </button>
           </div>
+        </div>
+
+        {/* Search bar */}
+        <div className="relative mt-4 print:hidden">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search guests, groups, or tables…"
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X size={16} />
+            </button>
+          )}
         </div>
 
         {/* Progress bar */}

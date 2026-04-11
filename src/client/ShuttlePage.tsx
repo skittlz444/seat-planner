@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Bus, Clock, Printer, X } from "lucide-react";
+import { ArrowLeft, Bus, Clock, Printer, X, Search } from "lucide-react";
 import type { Guest, ColorGroup } from "../shared/types";
 
 interface Props {
@@ -24,6 +24,7 @@ const ShuttlePage = ({ onBack }: Props) => {
   const [notification, setNotification] = useState<string | null>(null);
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [tempShuttleTime, setTempShuttleTime] = useState("");
+  const [searchTerm, setSearchTerm] = useState("");
 
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -140,11 +141,24 @@ const ShuttlePage = ({ onBack }: Props) => {
     setTempShuttleTime("");
   };
 
+  // Filter guests by search term
+  const matchesSearch = (guest: ShuttleGuest): boolean => {
+    if (!searchTerm.trim()) return true;
+    const term = searchTerm.toLowerCase();
+    return (
+      guest.name.toLowerCase().includes(term) ||
+      getColorGroupName(guest.color).toLowerCase().includes(term) ||
+      getTableName(guest.table_id).toLowerCase().includes(term) ||
+      (guest.shuttle_time?.toLowerCase().includes(term) ?? false)
+    );
+  };
+
   // Group guests by shuttle_time
   const shuttleGroups: Record<string, ShuttleGuest[]> = {};
   const unassignedGuests: ShuttleGuest[] = [];
 
   allGuests.forEach((guest) => {
+    if (!matchesSearch(guest)) return;
     if (guest.shuttle_time) {
       if (!shuttleGroups[guest.shuttle_time]) {
         shuttleGroups[guest.shuttle_time] = [];
@@ -202,7 +216,7 @@ const ShuttlePage = ({ onBack }: Props) => {
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-slate-200 rounded-lg transition-colors"
+            className="p-2 hover:bg-slate-200 rounded-lg transition-colors print:hidden"
             aria-label="Back to planner"
           >
             <ArrowLeft size={24} />
@@ -211,7 +225,7 @@ const ShuttlePage = ({ onBack }: Props) => {
             <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
               <Bus size={28} /> Shuttle Schedule
             </h1>
-            <p className="text-slate-500 font-medium">
+            <p className="text-slate-500 font-medium print:hidden">
               {totalWithShuttle} of {allGuests.length} guests assigned a shuttle
               time • {sortedShuttleTimes.length} time slot
               {sortedShuttleTimes.length !== 1 ? "s" : ""}
@@ -226,6 +240,28 @@ const ShuttlePage = ({ onBack }: Props) => {
         </button>
       </header>
 
+      {/* Search bar */}
+      <div className="max-w-5xl mx-auto mb-6 print:hidden">
+        <div className="relative">
+          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Search guests, groups, tables, or shuttle times…"
+            className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+          />
+          {searchTerm && (
+            <button
+              onClick={() => setSearchTerm("")}
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+            >
+              <X size={16} />
+            </button>
+          )}
+        </div>
+      </div>
+
       <main className="max-w-5xl mx-auto space-y-6">
         {/* Shuttle time groups */}
         {sortedShuttleTimes.map((time) => {
@@ -233,7 +269,7 @@ const ShuttlePage = ({ onBack }: Props) => {
           return (
             <section
               key={time}
-              className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"
+              className="shuttle-group-print bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"
             >
               <div className="bg-indigo-50 border-b border-indigo-100 px-6 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -337,7 +373,7 @@ const ShuttlePage = ({ onBack }: Props) => {
 
         {/* Guests without shuttle time */}
         {unassignedGuests.length > 0 && (
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+          <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden print:hidden">
             <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <Bus size={20} className="text-slate-400" />
