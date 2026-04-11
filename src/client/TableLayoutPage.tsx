@@ -494,7 +494,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
                     {leftGuest ? (
                       <>
                         {leftGuest.arrived ? (
-                          <span className="inline-flex items-center justify-center w-2 h-2 rounded-full shrink-0 bg-green-500">
+                          <span className="inline-flex items-center justify-center w-2 h-2 rounded-full shrink-0 bg-green-500" aria-label="Arrived">
                             <Check size={6} className="text-white" strokeWidth={4} />
                           </span>
                         ) : (
@@ -529,7 +529,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
                           {rightGuest.name.charAt(0)}
                         </span>
                         {rightGuest.arrived ? (
-                          <span className="inline-flex items-center justify-center w-2 h-2 rounded-full shrink-0 bg-green-500">
+                          <span className="inline-flex items-center justify-center w-2 h-2 rounded-full shrink-0 bg-green-500" aria-label="Arrived">
                             <Check size={6} className="text-white" strokeWidth={4} />
                           </span>
                         ) : (
@@ -950,6 +950,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
                           key={g.id}
                           className="inline-flex items-center justify-center w-2 h-2 rounded-full bg-green-500"
                           title={`${g.name} (arrived)`}
+                          aria-label={`${g.name} arrived`}
                         >
                           <Check size={6} className="text-white" strokeWidth={4} />
                         </span>

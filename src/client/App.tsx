@@ -991,7 +991,7 @@ const App = () => {
                         </span>
                       )}
                       {!!guest.arrived && (
-                        <Check size={12} className="text-green-500 shrink-0" strokeWidth={3} />
+                        <Check size={12} className="text-green-500 shrink-0" strokeWidth={3} aria-label="Arrived" />
                       )}
                       <button
                         type="button"
@@ -1239,7 +1239,7 @@ const App = () => {
                       </span>
                     )}
                     {!!guest.arrived && (
-                      <Check size={10} className="text-green-500 shrink-0" strokeWidth={3} />
+                      <Check size={10} className="text-green-500 shrink-0" strokeWidth={3} aria-label="Arrived" />
                     )}
                     <button
                       type="button"
