@@ -539,7 +539,12 @@ const App = () => {
       if (toTableId === null) {
         setGuests((prev) => [{ ...guestToMove!, table_id: null, table_position: null }, ...prev]);
       } else {
-        const assignedPosition = toPosition ?? data.position ?? 0;
+        const assignedPosition = toPosition ?? data.position;
+        if (assignedPosition === null || assignedPosition === undefined) {
+          // Unexpected: backend should always return a position for table assignments
+          fetchData();
+          return;
+        }
         setTables((prev) =>
           prev.map((t) =>
             t.id === toTableId
@@ -1163,7 +1168,7 @@ const App = () => {
               <div className="grid grid-cols-2 gap-2 min-h-[140px] content-start">
                 {Array.from({ length: table.max_seats }, (_, slotIndex) => {
                   const guest = table.guests.find(
-                    (g) => (g.table_position ?? 0) === slotIndex
+                    (g) => g.table_position !== null && g.table_position !== undefined && g.table_position === slotIndex
                   );
                   const isDropHighlight =
                     seatDropTarget &&
