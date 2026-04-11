@@ -66,26 +66,9 @@ const CANVAS_HEIGHT = 3000;
 const TABLE_WIDTH = 110;
 const ROW_HEIGHT = 20;
 const TABLE_HEADER_HEIGHT = 24;
-const STORAGE_KEY = "seatPlanner_canvasLayout";
 
 function uid(): string {
   return crypto.randomUUID();
-}
-
-// ── Persistence helpers ──────────────────────────────────────────────────────
-
-function loadLayout(): CanvasItem[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as CanvasItem[];
-  } catch {
-    /* ignore corrupt data */
-  }
-  return [];
-}
-
-function saveLayout(items: CanvasItem[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
@@ -100,7 +83,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
   const [loading, setLoading] = useState(true);
 
   // Canvas state
-  const [items, setItems] = useState<CanvasItem[]>(loadLayout);
+  const [items, setItems] = useState<CanvasItem[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>("select");
   const [zoom, setZoom] = useState(1);
@@ -136,15 +119,18 @@ const TableLayoutPage = ({ onBack }: Props) => {
   const [editingTextValue, setEditingTextValue] = useState("");
 
   const containerRef = useRef<HTMLDivElement>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const layoutLoadedRef = useRef(false);
 
   // ── Data fetching ────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [guestsRes, tablesRes] = await Promise.all([
+      const [guestsRes, tablesRes, layoutRes] = await Promise.all([
         fetch("/api/guests"),
         fetch("/api/tables"),
+        fetch("/api/canvas-layout"),
       ]);
       if (!guestsRes.ok || !tablesRes.ok) throw new Error("Failed to fetch");
 
@@ -165,8 +151,18 @@ const TableLayoutPage = ({ onBack }: Props) => {
             ),
         }))
       );
+
+      // Load canvas layout from DB
+      if (layoutRes.ok) {
+        const layoutData: CanvasItem[] = await layoutRes.json();
+        if (Array.isArray(layoutData)) {
+          setItems(layoutData);
+        }
+      }
+      layoutLoadedRef.current = true;
     } catch {
       /* silently fail — data just won't show */
+      layoutLoadedRef.current = true;
     } finally {
       setLoading(false);
     }
@@ -176,9 +172,25 @@ const TableLayoutPage = ({ onBack }: Props) => {
     fetchData();
   }, [fetchData]);
 
-  // Persist layout whenever items change
+  // Persist layout to DB (debounced) whenever items change
   useEffect(() => {
-    saveLayout(items);
+    // Don't save until we've loaded from DB first
+    if (!layoutLoadedRef.current) return;
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      fetch("/api/canvas-layout", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(items),
+      }).catch(() => {
+        /* silently fail */
+      });
+    }, 500);
+
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    };
   }, [items]);
 
   // ── Coordinate helpers ───────────────────────────────────────────────────

@@ -226,6 +226,40 @@ api.delete("/tables/:id", async (c) => {
   return c.json({ success: true });
 });
 
+// Get canvas layout
+api.get("/canvas-layout", async (c) => {
+  const result = await c.env.DB.prepare(
+    "SELECT items FROM canvas_layouts WHERE id = 'default'"
+  ).first<{ items: string }>();
+
+  if (!result) {
+    return c.json([]);
+  }
+
+  try {
+    return c.json(JSON.parse(result.items));
+  } catch {
+    return c.json([]);
+  }
+});
+
+// Save canvas layout
+api.put("/canvas-layout", async (c) => {
+  const items = await c.req.json();
+
+  if (!Array.isArray(items)) {
+    return c.json({ error: "Items must be an array" }, 400);
+  }
+
+  await c.env.DB.prepare(
+    "INSERT OR REPLACE INTO canvas_layouts (id, items, updated_at) VALUES ('default', ?, datetime('now'))"
+  )
+    .bind(JSON.stringify(items))
+    .run();
+
+  return c.json({ success: true });
+});
+
 // Mount API routes
 app.route("/api", api);
 
