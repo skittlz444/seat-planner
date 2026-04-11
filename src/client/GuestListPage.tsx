@@ -266,7 +266,7 @@ const GuestListPage = ({ onBack }: Props) => {
 
   // Mini table visualization for modal – 2-column layout matching planner view
   const renderMiniTable = (table: TableInfo, highlightGuestId: string) => {
-    const rows = Math.ceil(table.max_seats / 2);
+    const rows = Math.ceil(Math.max(table.max_seats, table.guests.length) / 2);
 
     return (
       <div className="my-4 mx-auto w-full max-w-[260px] rounded-lg border-2 border-amber-700 overflow-hidden" style={{ backgroundColor: "#f5e6d3" }}>

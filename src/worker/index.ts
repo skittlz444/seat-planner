@@ -99,9 +99,13 @@ api.put("/guests/:id/move", async (c) => {
       occupied.map((r) => r.table_position).filter((p): p is number => p !== null)
     );
 
+    // Determine the effective slot count (may exceed max_seats if table is overfull)
+    const guestCount = occupied.length + 1; // +1 for the guest being moved
+    const slotCount = Math.max(tableRow.max_seats, guestCount);
+
     if (position !== undefined && position !== null) {
       // Specific seat requested – validate
-      if (!Number.isInteger(position) || position < 0 || position >= tableRow.max_seats) {
+      if (!Number.isInteger(position) || position < 0 || position >= slotCount) {
         return c.json({ error: "Position out of range" }, 400);
       }
       if (occupiedSet.has(position)) {
@@ -109,7 +113,7 @@ api.put("/guests/:id/move", async (c) => {
       }
       tablePosition = position;
     } else {
-      // Find the first empty seat
+      // Find the first empty seat (only within max_seats for new assignments)
       for (let i = 0; i < tableRow.max_seats; i++) {
         if (!occupiedSet.has(i)) {
           tablePosition = i;
@@ -326,40 +330,6 @@ api.put("/tables/:id", async (c) => {
       .run();
   } else {
     return c.json({ error: "At least one of maxSeats or nickname is required" }, 400);
-  }
-
-  // When max_seats is reduced, re-compact guest positions so none are out of range
-  if (maxSeats !== undefined) {
-    const { results: outOfRange } = await c.env.DB.prepare(
-      "SELECT id FROM guests WHERE table_id = ? AND table_position >= ? ORDER BY table_position"
-    ).bind(tableId, maxSeats).all<{ id: string }>();
-
-    if (outOfRange.length > 0) {
-      // Find available positions within the new range
-      const { results: occupiedRows } = await c.env.DB.prepare(
-        "SELECT table_position FROM guests WHERE table_id = ? AND table_position < ? ORDER BY table_position"
-      ).bind(tableId, maxSeats).all<{ table_position: number }>();
-
-      const occupiedSet = new Set(occupiedRows.map((r) => r.table_position));
-      const statements: D1PreparedStatement[] = [];
-      let nextFree = 0;
-
-      for (const guest of outOfRange) {
-        while (occupiedSet.has(nextFree) && nextFree < maxSeats) nextFree++;
-        if (nextFree < maxSeats) {
-          statements.push(
-            c.env.DB.prepare("UPDATE guests SET table_position = ? WHERE id = ?")
-              .bind(nextFree, guest.id)
-          );
-          occupiedSet.add(nextFree);
-          nextFree++;
-        }
-      }
-
-      if (statements.length > 0) {
-        await c.env.DB.batch(statements);
-      }
-    }
   }
 
   return c.json({ success: true });

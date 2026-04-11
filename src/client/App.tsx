@@ -111,27 +111,23 @@ const App = () => {
             .filter((g: Guest) => g.table_id === t.id)
             .sort((a, b) => (a.table_position ?? Infinity) - (b.table_position ?? Infinity));
 
-          // Normalize: assign first available seat to guests with null/undefined/out-of-range table_position
-          const isValidPosition = (p: number | null | undefined): p is number =>
-            p !== null && p !== undefined && p >= 0 && p < t.max_seats;
+          // Normalize: assign first available seat to guests with null/undefined table_position
+          // Use the larger of max_seats or guest count so overflow guests still get a slot
+          const slotCount = Math.max(t.max_seats, tableGuests.length);
 
           const usedPositions = new Set(
             tableGuests
               .map((g) => g.table_position)
-              .filter(isValidPosition)
+              .filter((p): p is number => p !== null && p !== undefined && p >= 0 && p < slotCount)
           );
           let nextFree = 0;
           const normalized = tableGuests.map((g) => {
-            if (!isValidPosition(g.table_position)) {
+            if (g.table_position === null || g.table_position === undefined || g.table_position < 0 || g.table_position >= slotCount) {
               while (usedPositions.has(nextFree)) nextFree++;
-              if (nextFree < t.max_seats) {
-                const assigned = nextFree;
-                usedPositions.add(assigned);
-                nextFree++;
-                return { ...g, table_position: assigned };
-              }
-              // More guests than seats — clear position so guest is counted but not double-mapped
-              return { ...g, table_position: null };
+              const assigned = nextFree;
+              usedPositions.add(assigned);
+              nextFree++;
+              return { ...g, table_position: assigned };
             }
             return g;
           });
@@ -1167,7 +1163,7 @@ const App = () => {
                             : "bg-indigo-500"
                         }`}
                         style={{
-                          width: `${(table.guests.length / table.max_seats) * 100}%`,
+                          width: `${Math.min((table.guests.length / table.max_seats) * 100, 100)}%`,
                         }}
                       />
                     </div>
@@ -1218,7 +1214,7 @@ const App = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-2 min-h-[140px] content-start">
-                {Array.from({ length: table.max_seats }, (_, slotIndex) => {
+                {Array.from({ length: Math.max(table.max_seats, table.guests.length) }, (_, slotIndex) => {
                   const guest = seatMaps[table.id]?.get(slotIndex);
                   const isDropHighlight =
                     seatDropTarget &&
