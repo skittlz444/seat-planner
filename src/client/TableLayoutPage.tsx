@@ -9,6 +9,7 @@ import {
   Plus,
   ZoomIn,
   ZoomOut,
+  Check,
 } from "lucide-react";
 import type { Guest, Table } from "../shared/types";
 
@@ -492,13 +493,23 @@ const TableLayoutPage = ({ onBack }: Props) => {
                   <div className="flex-1 flex items-center gap-0.5 min-w-0">
                     {leftGuest ? (
                       <>
-                        <span
-                          className="inline-block w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: leftGuest.color }}
-                        />
+                        {leftGuest.arrived ? (
+                          <span
+                            className="inline-flex items-center justify-center w-2.5 h-2.5 shrink-0 rounded-sm bg-green-500"
+                            role="img"
+                            aria-label="Arrived"
+                          >
+                            <Check size={7} className="text-white" strokeWidth={4} aria-hidden="true" />
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: leftGuest.color }}
+                          />
+                        )}
                         <span
                           className="truncate font-medium"
-                          style={{ color: "#3d2b1f" }}
+                          style={{ color: leftGuest.arrived ? "#94a3b8" : "#3d2b1f" }}
                         >
                           {leftGuest.name.charAt(0)}
                         </span>
@@ -517,14 +528,24 @@ const TableLayoutPage = ({ onBack }: Props) => {
                       <>
                         <span
                           className="truncate font-medium"
-                          style={{ color: "#3d2b1f" }}
+                          style={{ color: rightGuest.arrived ? "#94a3b8" : "#3d2b1f" }}
                         >
                           {rightGuest.name.charAt(0)}
                         </span>
-                        <span
-                          className="inline-block w-2 h-2 rounded-full shrink-0"
-                          style={{ backgroundColor: rightGuest.color }}
-                        />
+                        {rightGuest.arrived ? (
+                          <span
+                            className="inline-flex items-center justify-center w-2.5 h-2.5 shrink-0 rounded-sm bg-green-500"
+                            role="img"
+                            aria-label="Arrived"
+                          >
+                            <Check size={7} className="text-white" strokeWidth={4} aria-hidden="true" />
+                          </span>
+                        ) : (
+                          <span
+                            className="inline-block w-2 h-2 rounded-full shrink-0"
+                            style={{ backgroundColor: rightGuest.color }}
+                          />
+                        )}
                       </>
                     ) : (
                       <span className="w-2 h-2 rounded-full border border-amber-300 opacity-40 shrink-0" />
@@ -931,14 +952,32 @@ const TableLayoutPage = ({ onBack }: Props) => {
                   )}
                   {/* Guest preview dots */}
                   <div className="flex flex-wrap gap-0.5 mb-1.5">
-                    {table.guests.map((g) => (
-                      <span
-                        key={g.id}
-                        className="w-2 h-2 rounded-full"
-                        style={{ backgroundColor: g.color }}
-                        title={g.name}
-                      />
-                    ))}
+                    {table.guests.map((g) =>
+                      g.arrived ? (
+                        <span
+                          key={g.id}
+                          className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-sm bg-green-500"
+                          title={`${g.name} (arrived)`}
+                          role="img"
+                          aria-label={`${g.name} arrived`}
+                        >
+                          <Check
+                            size={7}
+                            className="text-white"
+                            strokeWidth={4}
+                            aria-hidden="true"
+                            focusable="false"
+                          />
+                        </span>
+                      ) : (
+                        <span
+                          key={g.id}
+                          className="w-2 h-2 rounded-full"
+                          style={{ backgroundColor: g.color }}
+                          title={g.name}
+                        />
+                      )
+                    )}
                   </div>
                   {!onCanvas ? (
                     <button

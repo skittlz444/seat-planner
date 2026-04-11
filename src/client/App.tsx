@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
 import GuestListPage from "./GuestListPage";
 import type { Guest, Table, ColorGroup } from "../shared/types";
@@ -982,13 +982,18 @@ const App = () => {
                           onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
-                        <span
-                          className="font-semibold text-xs truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
-                          onClick={(e) => startEditingGuest(guest, e)}
-                          title="Click to edit name"
-                        >
-                          {guest.name}
-                        </span>
+                        <>
+                          {!!guest.arrived && (
+                            <Check size={12} className="text-green-500 shrink-0" strokeWidth={3} role="img" aria-label="Arrived" />
+                          )}
+                          <span
+                            className="font-semibold text-xs truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
+                            onClick={(e) => startEditingGuest(guest, e)}
+                            title="Click to edit name"
+                          >
+                            {guest.name}
+                          </span>
+                        </>
                       )}
                       <button
                         type="button"
@@ -1227,13 +1232,21 @@ const App = () => {
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : (
-                      <span
-                        className="text-[11px] font-bold truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
-                        onClick={(e) => startEditingGuest(guest, e)}
-                        title="Click to edit name"
-                      >
-                        {guest.name}
-                      </span>
+                      <>
+                        {!!guest.arrived && (
+                          <span className="shrink-0 inline-flex items-center">
+                            <Check size={10} className="text-green-500" strokeWidth={3} aria-hidden="true" />
+                            <span className="sr-only">Arrived</span>
+                          </span>
+                        )}
+                        <span
+                          className="text-[11px] font-bold truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
+                          onClick={(e) => startEditingGuest(guest, e)}
+                          title="Click to edit name"
+                        >
+                          {guest.name}
+                        </span>
+                      </>
                     )}
                     <button
                       type="button"

@@ -271,13 +271,13 @@ const GuestListPage = ({ onBack }: Props) => {
               const isHighlighted = guest.id === highlightGuestId;
               const dot = (
                 <span
-                  className={`inline-block w-2.5 h-2.5 rounded-full shrink-0 ${isHighlighted ? "ring-2 ring-indigo-400" : ""}`}
+                  className={`inline-block shrink-0 rounded-full ${isHighlighted ? "w-3 h-3 ring-2 ring-indigo-400 ring-offset-1" : "w-2.5 h-2.5"}`}
                   style={{ backgroundColor: guest.color }}
                 />
               );
               const name = (
                 <span
-                  className={`truncate font-medium ${isHighlighted ? "text-indigo-700 font-bold" : ""}`}
+                  className={`truncate ${isHighlighted ? "text-indigo-700 font-extrabold text-xs" : "font-medium"}`}
                   style={!isHighlighted ? { color: "#3d2b1f" } : undefined}
                   title={guest.name}
                 >
@@ -287,14 +287,17 @@ const GuestListPage = ({ onBack }: Props) => {
               return side === "left" ? <>{dot}{name}</> : <>{name}{dot}</>;
             };
 
+            const leftIsHighlighted = leftGuest?.id === highlightGuestId;
+            const rightIsHighlighted = rightGuest?.id === highlightGuestId;
+
             return (
               <div
                 key={rowIdx}
                 className="flex items-center"
-                style={{ height: 22 }}
+                style={{ height: 24 }}
               >
                 {/* Left side */}
-                <div className="flex-1 flex items-center gap-1 min-w-0">
+                <div className={`flex-1 flex items-center gap-1 min-w-0 px-0.5 ${leftIsHighlighted ? "seat-highlight" : ""}`}>
                   {renderSide(leftGuest, "left", rowIdx * 2)}
                 </div>
 
@@ -302,7 +305,7 @@ const GuestListPage = ({ onBack }: Props) => {
                 <div className="w-px h-3 bg-amber-400 opacity-40 mx-1" />
 
                 {/* Right side */}
-                <div className="flex-1 flex items-center gap-1 justify-end min-w-0">
+                <div className={`flex-1 flex items-center gap-1 justify-end min-w-0 px-0.5 ${rightIsHighlighted ? "seat-highlight" : ""}`}>
                   {renderSide(rightGuest, "right", rowIdx * 2 + 1)}
                 </div>
               </div>
