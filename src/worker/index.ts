@@ -551,13 +551,28 @@ api.post("/guests/reset-shuttle-checks", async (c) => {
 
 // Undo reset shuttle checks (restore specific guests as checked)
 api.post("/guests/undo-reset-shuttle-checks", async (c) => {
-  const { guestIds } = await c.req.json<{ guestIds: string[] }>();
-
-  if (!guestIds || !Array.isArray(guestIds) || guestIds.length === 0) {
-    return c.json({ error: "guestIds must be a non-empty array" }, 400);
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
   }
 
-  const statements = guestIds.map((id) =>
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("guestIds" in body)
+  ) {
+    return c.json({ error: "guestIds is required" }, 400);
+  }
+
+  const { guestIds } = body as { guestIds: unknown };
+
+  if (!Array.isArray(guestIds) || guestIds.length === 0 || !guestIds.every((id) => typeof id === "string")) {
+    return c.json({ error: "guestIds must be a non-empty array of strings" }, 400);
+  }
+
+  const statements = (guestIds as string[]).map((id) =>
     c.env.DB.prepare("UPDATE guests SET shuttle_checked = 1 WHERE id = ?").bind(id)
   );
 
