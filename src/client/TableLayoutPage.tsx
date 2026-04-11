@@ -829,7 +829,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
           strokeWidth={isSelected ? 3 : 2}
           strokeLinecap="round"
           strokeDasharray={isSelected ? "none" : "8 4"}
-          style={{ cursor: tool === "select" ? "move" : "pointer", pointerEvents: "none" }}
+          style={{ pointerEvents: "none" }}
         />
         {isSelected && (
           <>
@@ -1191,6 +1191,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
               <li>
                 <strong>Rect:</strong> Click to set first corner, click again
                 to set opposite corner. Draws a transparent rectangle.
+                Move it with Select tool; delete with Delete key.
               </li>
               <li>
                 <strong>Delete:</strong> Select an item, then press
