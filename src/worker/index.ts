@@ -13,6 +13,7 @@ interface Guest {
   table_position: number | null;
   arrived: number;
   shuttle_time: string | null;
+  shuttle_checked: number;
 }
 
 interface Table {
@@ -41,7 +42,7 @@ const api = new Hono<{ Bindings: Env }>();
 // Get all guests
 api.get("/guests", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, color, table_id, table_position, arrived, shuttle_time FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
+    "SELECT id, name, color, table_id, table_position, arrived, shuttle_time, shuttle_checked FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
   ).all<Guest>();
   return c.json(results);
 });
@@ -66,6 +67,7 @@ api.post("/guests", async (c) => {
       table_position: null,
       arrived: 0,
       shuttle_time: null,
+      shuttle_checked: 0,
     },
     201
   );
@@ -152,9 +154,9 @@ api.post("/guests/bulk", async (c) => {
   // Use batch for better performance
   const statements = validNames.map((name) => {
     const id = generateId();
-    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null, arrived: 0, shuttle_time: null });
+    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null, arrived: 0, shuttle_time: null, shuttle_checked: 0 });
     return c.env.DB.prepare(
-      "INSERT INTO guests (id, name, color, table_id, table_position, arrived, shuttle_time) VALUES (?, ?, ?, NULL, NULL, 0, NULL)"
+      "INSERT INTO guests (id, name, color, table_id, table_position, arrived, shuttle_time, shuttle_checked) VALUES (?, ?, ?, NULL, NULL, 0, NULL, 0)"
     ).bind(id, name.trim(), color);
   });
 
@@ -460,10 +462,13 @@ api.put("/guests/:id/shuttle", async (c) => {
     return c.json({ error: "shuttle_time must be a non-empty string or null" }, 400);
   }
 
-  const result = await c.env.DB.prepare(
-    "UPDATE guests SET shuttle_time = ? WHERE id = ?"
-  )
-    .bind(shuttleTime !== null ? shuttleTime.trim() : null, guestId)
+  // When removing shuttle time, also clear shuttle_checked so the guest
+  // doesn't remain invisibly checked in the "No Shuttle Assigned" section.
+  const sql = shuttleTime === null
+    ? "UPDATE guests SET shuttle_time = NULL, shuttle_checked = 0 WHERE id = ?"
+    : "UPDATE guests SET shuttle_time = ? WHERE id = ?";
+  const result = await c.env.DB.prepare(sql)
+    .bind(...(shuttleTime === null ? [guestId] : [shuttleTime.trim(), guestId]))
     .run();
 
   if (result.meta.changes === 0) {
@@ -495,6 +500,83 @@ api.post("/guests/undo-reset-arrivals", async (c) => {
 
   const statements = guestIds.map((id) =>
     c.env.DB.prepare("UPDATE guests SET arrived = 1 WHERE id = ?").bind(id)
+  );
+
+  await c.env.DB.batch(statements);
+
+  return c.json({ success: true });
+});
+
+// Toggle guest shuttle check status
+api.put("/guests/:id/shuttle-check", async (c) => {
+  const guestId = c.req.param("id");
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    typeof (body as Record<string, unknown>).shuttle_checked !== "boolean"
+  ) {
+    return c.json({ error: "shuttle_checked must be a boolean" }, 400);
+  }
+
+  const shuttleChecked = (body as { shuttle_checked: boolean }).shuttle_checked;
+
+  const result = await c.env.DB.prepare(
+    "UPDATE guests SET shuttle_checked = ? WHERE id = ?"
+  )
+    .bind(shuttleChecked ? 1 : 0, guestId)
+    .run();
+
+  if (result.meta.changes === 0) {
+    return c.json({ error: "Guest not found" }, 404);
+  }
+
+  return c.json({ success: true });
+});
+
+// Reset all shuttle checks
+api.post("/guests/reset-shuttle-checks", async (c) => {
+  // Return current shuttle_checked states before resetting (for undo)
+  const { results: checkedGuests } = await c.env.DB.prepare(
+    "SELECT id FROM guests WHERE shuttle_checked = 1"
+  ).all<{ id: string }>();
+
+  await c.env.DB.prepare("UPDATE guests SET shuttle_checked = 0").run();
+
+  return c.json({ undoGuestIds: checkedGuests.map((g) => g.id) });
+});
+
+// Undo reset shuttle checks (restore specific guests as checked)
+api.post("/guests/undo-reset-shuttle-checks", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("guestIds" in body)
+  ) {
+    return c.json({ error: "guestIds is required" }, 400);
+  }
+
+  const { guestIds } = body as { guestIds: unknown };
+
+  if (!Array.isArray(guestIds) || guestIds.length === 0 || !guestIds.every((id) => typeof id === "string")) {
+    return c.json({ error: "guestIds must be a non-empty array of strings" }, 400);
+  }
+
+  const statements = (guestIds as string[]).map((id) =>
+    c.env.DB.prepare("UPDATE guests SET shuttle_checked = 1 WHERE id = ?").bind(id)
   );
 
   await c.env.DB.batch(statements);

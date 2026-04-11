@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ArrowLeft, Bus, Clock, Printer, X, Search } from "lucide-react";
+import { ArrowLeft, Bus, Clock, Printer, X, Search, Check, RotateCcw, Undo2 } from "lucide-react";
 import type { Guest, ColorGroup } from "../shared/types";
 
 interface Props {
   onBack: () => void;
 }
 
-interface ShuttleGuest extends Omit<Guest, "arrived"> {
+interface ShuttleGuest extends Omit<Guest, "arrived" | "shuttle_checked"> {
   arrived: boolean;
+  shuttle_checked: boolean;
 }
 
 interface TableInfo {
@@ -25,6 +26,8 @@ const ShuttlePage = ({ onBack }: Props) => {
   const [editingGuestId, setEditingGuestId] = useState<string | null>(null);
   const [tempShuttleTime, setTempShuttleTime] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
+  const [undoGuestIds, setUndoGuestIds] = useState<string[] | null>(null);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -68,6 +71,7 @@ const ShuttlePage = ({ onBack }: Props) => {
         guestsRaw.map((g) => ({
           ...g,
           arrived: Boolean(g.arrived),
+          shuttle_checked: Boolean(g.shuttle_checked),
         }))
       );
       setTables(tablesData);
@@ -109,7 +113,13 @@ const ShuttlePage = ({ onBack }: Props) => {
 
       setAllGuests((prev) =>
         prev.map((g) =>
-          g.id === guestId ? { ...g, shuttle_time: shuttleTime } : g
+          g.id === guestId
+            ? {
+                ...g,
+                shuttle_time: shuttleTime,
+                shuttle_checked: shuttleTime === null ? false : g.shuttle_checked,
+              }
+            : g
         )
       );
       showNotification(
@@ -139,6 +149,81 @@ const ShuttlePage = ({ onBack }: Props) => {
     await updateShuttleTime(guestId, null);
     setEditingGuestId(null);
     setTempShuttleTime("");
+  };
+
+  const toggleShuttleCheck = async (guest: ShuttleGuest) => {
+    const newChecked = !guest.shuttle_checked;
+
+    // Optimistic update
+    setAllGuests((prev) =>
+      prev.map((g) =>
+        g.id === guest.id ? { ...g, shuttle_checked: newChecked } : g
+      )
+    );
+
+    try {
+      const response = await fetch(`/api/guests/${guest.id}/shuttle-check`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ shuttle_checked: newChecked }),
+      });
+      if (!response.ok) throw new Error("Failed to update shuttle check");
+    } catch {
+      // Revert on error
+      setAllGuests((prev) =>
+        prev.map((g) =>
+          g.id === guest.id ? { ...g, shuttle_checked: !newChecked } : g
+        )
+      );
+      showNotification("Failed to update shuttle check");
+    }
+  };
+
+  const resetAllShuttleChecks = async () => {
+    setShowResetConfirm(false);
+
+    try {
+      const response = await fetch("/api/guests/reset-shuttle-checks", {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error("Failed to reset shuttle checks");
+
+      const data: { undoGuestIds: string[] } = await response.json();
+      setUndoGuestIds(data.undoGuestIds);
+
+      // Update local state
+      setAllGuests((prev) =>
+        prev.map((g) => ({ ...g, shuttle_checked: false }))
+      );
+      showNotification("All shuttle check-offs have been reset");
+    } catch {
+      showNotification("Failed to reset shuttle checks");
+    }
+  };
+
+  const undoReset = async () => {
+    if (!undoGuestIds || undoGuestIds.length === 0) return;
+
+    try {
+      const response = await fetch("/api/guests/undo-reset-shuttle-checks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guestIds: undoGuestIds }),
+      });
+      if (!response.ok) throw new Error("Failed to undo reset");
+
+      // Restore local state
+      const idsSet = new Set(undoGuestIds);
+      setAllGuests((prev) =>
+        prev.map((g) =>
+          idsSet.has(g.id) ? { ...g, shuttle_checked: true } : g
+        )
+      );
+      setUndoGuestIds(null);
+      showNotification("Reset undone — shuttle check-offs restored");
+    } catch {
+      showNotification("Failed to undo reset");
+    }
   };
 
   // Filter guests by search term
@@ -198,6 +283,7 @@ const ShuttlePage = ({ onBack }: Props) => {
   );
 
   const totalWithShuttle = allGuests.filter((g) => g.shuttle_time).length;
+  const checkedCount = allGuests.filter((g) => g.shuttle_checked).length;
 
   if (loading) {
     return (
@@ -216,6 +302,54 @@ const ShuttlePage = ({ onBack }: Props) => {
         </div>
       )}
 
+      {/* Undo banner */}
+      {undoGuestIds && undoGuestIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-4">
+          <span className="text-sm font-medium">All shuttle check-offs were reset</span>
+          <button
+            onClick={undoReset}
+            className="flex items-center gap-1.5 bg-white text-slate-800 px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-slate-100 transition-colors"
+          >
+            <Undo2 size={14} /> Undo
+          </button>
+          <button
+            onClick={() => setUndoGuestIds(null)}
+            className="p-1 hover:bg-slate-700 rounded-lg transition-colors"
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
+      {/* Reset Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <h3 className="text-lg font-bold text-slate-800 mb-2">
+              Reset All Shuttle Check-Offs?
+            </h3>
+            <p className="text-sm text-slate-500 mb-6">
+              This will uncheck all {checkedCount} checked guest{checkedCount !== 1 ? "s" : ""} from
+              the shuttle list. You can undo this action.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={resetAllShuttleChecks}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold hover:bg-red-700 transition-colors"
+              >
+                Reset All
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="max-w-5xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
@@ -230,17 +364,27 @@ const ShuttlePage = ({ onBack }: Props) => {
               <Bus size={28} /> Shuttle Schedule
             </h1>
             <p className="text-slate-500 font-medium print:hidden">
-              {totalWithShuttle} of {allGuests.length} guests assigned a shuttle
-              time
+              {checkedCount} of {totalWithShuttle} checked in
+              {" · "}
+              {totalWithShuttle} of {allGuests.length} assigned a shuttle time
             </p>
           </div>
         </div>
-        <button
-          onClick={() => window.print()}
-          className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 print:hidden"
-        >
-          <Printer size={20} /> Print
-        </button>
+        <div className="flex gap-2 print:hidden">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+          >
+            <Printer size={20} /> Print
+          </button>
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            disabled={checkedCount === 0}
+            className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <RotateCcw size={16} /> Reset
+          </button>
+        </div>
       </header>
 
       {/* Search bar */}
@@ -271,6 +415,7 @@ const ShuttlePage = ({ onBack }: Props) => {
         {/* Shuttle time groups */}
         {sortedShuttleTimes.map((time) => {
           const guests = shuttleGroups[time];
+          const groupChecked = guests.filter((g) => g.shuttle_checked).length;
           return (
             <section
               key={time}
@@ -283,15 +428,18 @@ const ShuttlePage = ({ onBack }: Props) => {
                     {time}
                   </h2>
                 </div>
-                <span className="text-sm font-semibold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">
-                  {guests.length} guest{guests.length !== 1 ? "s" : ""}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-indigo-600 bg-indigo-100 px-3 py-1 rounded-full">
+                    {groupChecked}/{guests.length} checked
+                  </span>
+                </div>
               </div>
               <div className="p-4">
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                      <th className="pb-2 pl-2">Guest</th>
+                      <th className="pb-2 pl-2 w-10"></th>
+                      <th className="pb-2">Guest</th>
                       <th className="pb-2">Group</th>
                       <th className="pb-2">Table</th>
                       <th className="pb-2 pr-2 print:hidden">Actions</th>
@@ -303,15 +451,35 @@ const ShuttlePage = ({ onBack }: Props) => {
                       .map((guest) => (
                         <tr
                           key={guest.id}
-                          className="border-t border-slate-50 hover:bg-slate-50/50"
+                          className={`border-t border-slate-50 hover:bg-slate-50/50 cursor-pointer ${
+                            guest.shuttle_checked ? "bg-green-50/50" : ""
+                          }`}
+                          onClick={() => toggleShuttleCheck(guest)}
                         >
                           <td className="py-2 pl-2">
+                            <div
+                              className={`w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all ${
+                                guest.shuttle_checked
+                                  ? "bg-green-500 border-green-500"
+                                  : "border-slate-300 bg-white"
+                              }`}
+                            >
+                              {guest.shuttle_checked && (
+                                <Check size={14} className="text-white" strokeWidth={3} />
+                              )}
+                            </div>
+                          </td>
+                          <td className="py-2">
                             <div className="flex items-center gap-2">
                               <span
                                 className="w-3 h-3 rounded-full shrink-0"
                                 style={{ backgroundColor: guest.color }}
                               />
-                              <span className="font-medium text-slate-800">
+                              <span className={`font-medium ${
+                                guest.shuttle_checked
+                                  ? "text-slate-400 line-through"
+                                  : "text-slate-800"
+                              }`}>
                                 {guest.name}
                               </span>
                             </div>
@@ -322,7 +490,7 @@ const ShuttlePage = ({ onBack }: Props) => {
                           <td className="py-2 text-sm text-slate-500">
                             {getTableName(guest.table_id)}
                           </td>
-                          <td className="py-2 pr-2 print:hidden">
+                          <td className="py-2 pr-2 print:hidden" onClick={(e) => e.stopPropagation()}>
                             {editingGuestId === guest.id ? (
                               <div className="flex items-center gap-1">
                                 <input
