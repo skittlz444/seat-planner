@@ -69,7 +69,7 @@ const TABLE_HEADER_HEIGHT = 26;
 const STORAGE_KEY = "seatPlanner_canvasLayout";
 
 function uid(): string {
-  return Math.random().toString(36).substring(2, 10);
+  return crypto.randomUUID();
 }
 
 // ── Persistence helpers ──────────────────────────────────────────────────────
@@ -327,15 +327,12 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
       const coords = getCanvasCoords(e);
       const item = items.find((it) => it.id === itemId);
-      if (!item) return;
-
-      const ix = "x" in item ? (item as CanvasTableItem | CanvasTextItem).x : 0;
-      const iy = "y" in item ? (item as CanvasTableItem | CanvasTextItem).y : 0;
+      if (!item || item.type === "line") return;
 
       setDragging({
         id: itemId,
-        offsetX: coords.x - ix,
-        offsetY: coords.y - iy,
+        offsetX: coords.x - item.x,
+        offsetY: coords.y - item.y,
       });
       setSelectedId(itemId);
     },
@@ -347,8 +344,10 @@ const TableLayoutPage = ({ onBack }: Props) => {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.key === "Delete" || e.key === "Backspace") {
-        // Don't delete if editing text
+        // Don't delete if editing text or any input/textarea is focused
         if (editingTextId) return;
+        const active = document.activeElement;
+        if (active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA")) return;
         if (selectedId) {
           removeItem(selectedId);
         }
@@ -885,7 +884,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         <div
           ref={containerRef}
           className="flex-1 overflow-auto relative"
-          style={{ cursor: tool === "text" ? "text" : tool === "line" ? "crosshair" : "default" }}
+          style={{ cursor: { text: "text" as const, line: "crosshair" as const, select: "default" as const }[tool] }}
         >
           {/* Scaled canvas wrapper — the outer div sizes the scroll area */}
           <div
