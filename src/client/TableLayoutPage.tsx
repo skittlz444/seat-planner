@@ -63,9 +63,9 @@ type Tool = "select" | "text" | "line";
 
 const CANVAS_WIDTH = 4000;
 const CANVAS_HEIGHT = 3000;
-const TABLE_WIDTH = 160;
-const ROW_HEIGHT = 18;
-const TABLE_HEADER_HEIGHT = 26;
+const TABLE_WIDTH = 110;
+const ROW_HEIGHT = 20;
+const TABLE_HEADER_HEIGHT = 24;
 const STORAGE_KEY = "seatPlanner_canvasLayout";
 
 function uid(): string {
@@ -103,13 +103,22 @@ const TableLayoutPage = ({ onBack }: Props) => {
   const [items, setItems] = useState<CanvasItem[]>(loadLayout);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>("select");
-  const [zoom, setZoom] = useState(0.5);
+  const [zoom, setZoom] = useState(1);
 
   // Drag state
   const [dragging, setDragging] = useState<{
     id: string;
     offsetX: number;
     offsetY: number;
+  } | null>(null);
+
+  // Rotation drag state
+  const [rotating, setRotating] = useState<{
+    id: string;
+    centerX: number;
+    centerY: number;
+    startAngle: number;
+    startRotation: number;
   } | null>(null);
 
   // Line-drawing state
@@ -292,6 +301,18 @@ const TableLayoutPage = ({ onBack }: Props) => {
     (e: React.MouseEvent) => {
       const coords = getCanvasCoords(e);
 
+      // Rotating an item
+      if (rotating) {
+        const dx = coords.x - rotating.centerX;
+        const dy = coords.y - rotating.centerY;
+        const currentAngle = Math.atan2(dy, dx) * (180 / Math.PI);
+        const deltaAngle = currentAngle - rotating.startAngle;
+        let newRotation = (rotating.startRotation + deltaAngle) % 360;
+        if (newRotation < 0) newRotation += 360;
+        updateItem(rotating.id, { rotation: newRotation } as Partial<CanvasItem>);
+        return;
+      }
+
       // Dragging an item
       if (dragging) {
         updateItem(dragging.id, {
@@ -306,16 +327,20 @@ const TableLayoutPage = ({ onBack }: Props) => {
         setLinePreviewEnd(coords);
       }
     },
-    [dragging, tool, lineStart, getCanvasCoords, updateItem]
+    [rotating, dragging, tool, lineStart, getCanvasCoords, updateItem]
   );
 
   const handleCanvasMouseUp = useCallback(() => {
     if (dragging) setDragging(null);
-  }, [dragging]);
+    if (rotating) setRotating(null);
+  }, [dragging, rotating]);
 
   // Also handle mouseup outside canvas
   useEffect(() => {
-    const handler = () => setDragging(null);
+    const handler = () => {
+      setDragging(null);
+      setRotating(null);
+    };
     window.addEventListener("mouseup", handler);
     return () => window.removeEventListener("mouseup", handler);
   }, []);
@@ -337,6 +362,35 @@ const TableLayoutPage = ({ onBack }: Props) => {
       setSelectedId(itemId);
     },
     [tool, items, getCanvasCoords]
+  );
+
+  const startRotate = useCallback(
+    (e: React.MouseEvent, itemId: string) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const item = items.find((it) => it.id === itemId);
+      if (!item || item.type !== "table") return;
+
+      const tableItem = item as CanvasTableItem;
+      const table = tables.find((t) => t.id === tableItem.tableId);
+      const height = table ? getTableHeight(table.max_seats) : 100;
+
+      // Center of the table in canvas coords
+      const centerX = tableItem.x + TABLE_WIDTH / 2;
+      const centerY = tableItem.y + height / 2;
+
+      const coords = getCanvasCoords(e);
+      const startAngle = Math.atan2(coords.y - centerY, coords.x - centerX) * (180 / Math.PI);
+
+      setRotating({
+        id: itemId,
+        centerX,
+        centerY,
+        startAngle,
+        startRotation: tableItem.rotation,
+      });
+    },
+    [items, tables, getCanvasCoords]
   );
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
@@ -486,35 +540,44 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
         {/* Controls when selected */}
         {isSelected && (
-          <div
-            className="absolute -top-8 left-0 flex gap-1"
-            style={{ transform: `rotate(${-item.rotation}deg)` }}
-          >
-            <button
-              className="p-1 bg-indigo-600 text-white rounded shadow hover:bg-indigo-700"
-              title="Rotate 15°"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                updateItem(item.id, {
-                  rotation: (item.rotation + 15) % 360,
-                } as Partial<CanvasItem>);
+          <>
+            {/* Rotation drag handle — positioned above the table center */}
+            <div
+              className="absolute flex flex-col items-center"
+              style={{
+                left: "50%",
+                top: -32,
+                transform: `translateX(-50%) rotate(${-item.rotation}deg)`,
               }}
             >
-              <RotateCw size={12} />
-            </button>
-            <button
-              className="p-1 bg-red-600 text-white rounded shadow hover:bg-red-700"
-              title="Remove from canvas"
-              onMouseDown={(e) => e.stopPropagation()}
-              onClick={(e) => {
-                e.stopPropagation();
-                removeItem(item.id);
-              }}
+              <div
+                className="w-5 h-5 bg-indigo-600 rounded-full shadow cursor-grab active:cursor-grabbing flex items-center justify-center hover:bg-indigo-700 transition-colors"
+                title="Drag to rotate"
+                onMouseDown={(e) => startRotate(e, item.id)}
+              >
+                <RotateCw size={10} className="text-white" />
+              </div>
+              <div className="w-px h-2 bg-indigo-400" />
+            </div>
+
+            {/* Delete button */}
+            <div
+              className="absolute -top-8 right-0"
+              style={{ transform: `rotate(${-item.rotation}deg)` }}
             >
-              <Trash2 size={12} />
-            </button>
-          </div>
+              <button
+                className="p-1 bg-red-600 text-white rounded shadow hover:bg-red-700"
+                title="Remove from canvas"
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeItem(item.id);
+                }}
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </>
         )}
       </div>
     );
@@ -652,6 +715,24 @@ const TableLayoutPage = ({ onBack }: Props) => {
               stroke="white"
               strokeWidth={2}
             />
+            {/* Delete button at midpoint */}
+            <foreignObject
+              x={(item.x1 + item.x2) / 2 - 10}
+              y={(item.y1 + item.y2) / 2 - 24}
+              width={20}
+              height={20}
+            >
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  removeItem(item.id);
+                }}
+                className="w-5 h-5 bg-red-600 text-white rounded-full shadow flex items-center justify-center hover:bg-red-700"
+                title="Delete line"
+              >
+                <Trash2 size={10} />
+              </button>
+            </foreignObject>
           </>
         )}
       </g>
@@ -778,19 +859,11 @@ const TableLayoutPage = ({ onBack }: Props) => {
           </button>
         )}
 
-        {/* Rotate if table selected */}
+        {/* Rotate hint if table selected */}
         {selectedItem && selectedItem.type === "table" && (
-          <button
-            onClick={() =>
-              updateItem(selectedId!, {
-                rotation:
-                  ((selectedItem as CanvasTableItem).rotation + 15) % 360,
-              } as Partial<CanvasItem>)
-            }
-            className="flex items-center gap-1 px-3 py-1.5 bg-indigo-100 text-indigo-700 rounded-md text-xs font-semibold hover:bg-indigo-200 transition-colors"
-          >
-            <RotateCw size={14} /> Rotate
-          </button>
+          <span className="flex items-center gap-1 px-3 py-1.5 text-indigo-600 text-xs font-semibold">
+            <RotateCw size={14} /> Drag handle to rotate
+          </span>
         )}
       </div>
 
@@ -859,7 +932,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
             <ul className="text-[10px] text-slate-500 space-y-1.5">
               <li>
                 <strong>Select:</strong> Click &amp; drag to move items.
-                Click table to select, use controls to rotate or delete.
+                Click table to select, drag the handle above to rotate.
               </li>
               <li>
                 <strong>Text:</strong> Click on canvas to place text.
