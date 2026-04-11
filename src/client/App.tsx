@@ -112,14 +112,17 @@ const App = () => {
             .sort((a, b) => (a.table_position ?? Infinity) - (b.table_position ?? Infinity));
 
           // Normalize: assign first available seat to guests with null/undefined/out-of-range table_position
+          const isValidPosition = (p: number | null | undefined): p is number =>
+            p !== null && p !== undefined && p >= 0 && p < t.max_seats;
+
           const usedPositions = new Set(
             tableGuests
               .map((g) => g.table_position)
-              .filter((p): p is number => p !== null && p !== undefined && p >= 0 && p < t.max_seats)
+              .filter(isValidPosition)
           );
           let nextFree = 0;
           const normalized = tableGuests.map((g) => {
-            if (g.table_position === null || g.table_position === undefined || g.table_position < 0 || g.table_position >= t.max_seats) {
+            if (!isValidPosition(g.table_position)) {
               while (usedPositions.has(nextFree)) nextFree++;
               if (nextFree < t.max_seats) {
                 const assigned = nextFree;
@@ -127,6 +130,8 @@ const App = () => {
                 nextFree++;
                 return { ...g, table_position: assigned };
               }
+              // More guests than seats — clear position so guest is counted but not double-mapped
+              return { ...g, table_position: null };
             }
             return g;
           });
