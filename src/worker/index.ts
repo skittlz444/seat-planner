@@ -170,6 +170,47 @@ api.put("/tables/:id", async (c) => {
   return c.json({ success: true });
 });
 
+// Reorder guests within a table
+api.put("/tables/:id/reorder", async (c) => {
+  const tableId = c.req.param("id");
+  const { guestIds } = await c.req.json<{ guestIds: string[] }>();
+
+  if (!guestIds || !Array.isArray(guestIds) || guestIds.length === 0) {
+    return c.json({ error: "guestIds must be a non-empty array" }, 400);
+  }
+
+  // Reject duplicate guest IDs
+  if (new Set(guestIds).size !== guestIds.length) {
+    return c.json({ error: "guestIds must not contain duplicates" }, 400);
+  }
+
+  // Verify guestIds is a complete permutation of all guests at this table
+  const { results: tableGuests } = await c.env.DB.prepare(
+    "SELECT id FROM guests WHERE table_id = ?"
+  ).bind(tableId).all<{ id: string }>();
+
+  if (tableGuests.length !== guestIds.length) {
+    return c.json({ error: "guestIds must include all guests assigned to this table" }, 400);
+  }
+
+  const tableGuestIdSet = new Set(tableGuests.map((g) => g.id));
+  for (const id of guestIds) {
+    if (!tableGuestIdSet.has(id)) {
+      return c.json({ error: "Some guest IDs do not belong to this table" }, 400);
+    }
+  }
+
+  const statements = guestIds.map((guestId, index) =>
+    c.env.DB.prepare(
+      "UPDATE guests SET table_position = ? WHERE id = ? AND table_id = ?"
+    ).bind(index, guestId, tableId)
+  );
+
+  await c.env.DB.batch(statements);
+
+  return c.json({ success: true });
+});
+
 // Delete a table (unassigns all guests)
 api.delete("/tables/:id", async (c) => {
   const tableId = c.req.param("id");
