@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check, Bus, Printer } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
 import GuestListPage from "./GuestListPage";
@@ -106,12 +106,31 @@ const App = () => {
 
       setGuests(guestsData.filter((g: Guest) => !g.table_id));
       setTables(
-        tablesData.map((t: { id: string; name: string; nickname: string | null; max_seats: number; sort_order: number }) => ({
-          ...t,
-          guests: guestsData
+        tablesData.map((t: { id: string; name: string; nickname: string | null; max_seats: number; sort_order: number }) => {
+          const tableGuests = guestsData
             .filter((g: Guest) => g.table_id === t.id)
-            .sort((a, b) => (a.table_position ?? 0) - (b.table_position ?? 0)),
-        }))
+            .sort((a, b) => (a.table_position ?? Infinity) - (b.table_position ?? Infinity));
+
+          // Normalize: assign first available seat to guests with null/undefined table_position
+          const usedPositions = new Set(
+            tableGuests
+              .map((g) => g.table_position)
+              .filter((p): p is number => p !== null && p !== undefined)
+          );
+          let nextFree = 0;
+          const normalized = tableGuests.map((g) => {
+            if (g.table_position === null || g.table_position === undefined) {
+              while (usedPositions.has(nextFree)) nextFree++;
+              const assigned = nextFree;
+              usedPositions.add(assigned);
+              nextFree++;
+              return { ...g, table_position: assigned };
+            }
+            return g;
+          });
+
+          return { ...t, guests: normalized };
+        })
       );
 
       // Load saved color group names
@@ -457,8 +476,12 @@ const App = () => {
       const guest = table.guests.find((g) => g.id === guestId);
       if (!guest) return;
 
-      const oldPosition = guest.table_position ?? 0;
-      if (oldPosition === toPosition) {
+      const oldPosition = guest.table_position;
+      if (
+        oldPosition !== null &&
+        oldPosition !== undefined &&
+        oldPosition === toPosition
+      ) {
         setSeatDropTarget(null);
         return;
       }
@@ -693,6 +716,21 @@ const App = () => {
       </div>
     );
   }
+
+  // Precompute position→guest maps per table for O(1) slot lookups
+  const seatMaps = useMemo(() => {
+    const maps: Record<string, Map<number, Guest>> = {};
+    for (const table of tables) {
+      const map = new Map<number, Guest>();
+      for (const guest of table.guests) {
+        if (guest.table_position !== null && guest.table_position !== undefined) {
+          map.set(guest.table_position, guest);
+        }
+      }
+      maps[table.id] = map;
+    }
+    return maps;
+  }, [tables]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
@@ -1167,9 +1205,7 @@ const App = () => {
 
               <div className="grid grid-cols-2 gap-2 min-h-[140px] content-start">
                 {Array.from({ length: table.max_seats }, (_, slotIndex) => {
-                  const guest = table.guests.find(
-                    (g) => g.table_position !== null && g.table_position !== undefined && g.table_position === slotIndex
-                  );
+                  const guest = seatMaps[table.id]?.get(slotIndex);
                   const isDropHighlight =
                     seatDropTarget &&
                     seatDropTarget.tableId === table.id &&

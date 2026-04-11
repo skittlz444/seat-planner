@@ -122,9 +122,21 @@ api.put("/guests/:id/move", async (c) => {
     }
   }
 
-  await c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE id = ?")
-    .bind(tableId, tablePosition, guestId)
-    .run();
+  // Use batch to run inside a transaction — the UNIQUE index on
+  // (table_id, table_position) enforces that no two guests can
+  // occupy the same seat even under concurrent requests.
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE id = ?")
+        .bind(tableId, tablePosition, guestId),
+    ]);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("UNIQUE constraint failed")) {
+      return c.json({ error: "Seat is already occupied" }, 409);
+    }
+    throw err;
+  }
 
   return c.json({ success: true, position: tablePosition });
 });
