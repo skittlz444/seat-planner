@@ -46,6 +46,22 @@
     display: none !important;
   }
 
+  /* Hide total guests count in header */
+  header p {
+    display: none !important;
+  }
+
+  /* Hide table nicknames, capacity bar, and seat counts in planner */
+  button[title="Click to edit nickname"],
+  span[title="Click to edit capacity"] {
+    display: none !important;
+  }
+
+  /* Hide the capacity progress bar row */
+  .print\:hidden {
+    display: none !important;
+  }
+
   /* Hide sidebar (Guest Manager panel) */
   main > section:first-child {
     display: none !important;

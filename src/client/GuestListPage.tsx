@@ -569,9 +569,11 @@ const GuestListPage = ({ onBack }: Props) => {
                           {guestTable && (
                             <span className="text-sm font-medium text-slate-600 ml-2 px-2 py-0.5 rounded border border-slate-200 bg-slate-100 print:bg-transparent whitespace-nowrap">
                               {guestTable.name}
-                              {guestTable.nickname
-                                ? ` (${guestTable.nickname})`
-                                : ""}
+                              {guestTable.nickname && (
+                                <span className="print:hidden">
+                                  {` (${guestTable.nickname})`}
+                                </span>
+                              )}
                             </span>
                           )}
                         </div>

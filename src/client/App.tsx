@@ -1084,10 +1084,10 @@ const App = () => {
                 >
                   <GripVertical
                     size={16}
-                    className="text-slate-300 shrink-0"
+                    className="text-slate-300 shrink-0 print:hidden"
                   />
                   <div className="flex-1">
-                    <h3 className="text-md font-bold text-slate-800">
+                    <h3 className="text-md font-bold text-slate-800 print:hidden">
                     {table.name}
                   </h3>
                   {editingNicknameTableId === table.id ? (
@@ -1105,7 +1105,7 @@ const App = () => {
                       }}
                       autoFocus
                       placeholder="Add nickname…"
-                      className="text-xs text-slate-500 bg-white px-1 py-0.5 rounded border border-indigo-300 outline-none w-full mt-0.5"
+                      className="text-xs text-slate-500 bg-white px-1 py-0.5 rounded border border-indigo-300 outline-none w-full mt-0.5 print:hidden"
                       onClick={(e) => e.stopPropagation()}
                     />
                   ) : (
@@ -1122,7 +1122,7 @@ const App = () => {
                       {table.nickname || "Add nickname…"}
                     </button>
                   )}
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2 mt-1 print:hidden">
                     <div className="w-24 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                       <div
                         className={`h-full transition-all duration-300 ${
