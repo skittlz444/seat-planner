@@ -230,7 +230,9 @@ const App = () => {
   };
 
   // Delete guest
-  const deleteGuest = async (guestId: string, tableId: string | null) => {
+  const deleteGuest = async (guestId: string, tableId: string | null, guestName: string) => {
+    if (!window.confirm(`Delete "${guestName}"?`)) return;
+
     try {
       const response = await fetch(`/api/guests/${guestId}`, {
         method: "DELETE",
@@ -778,7 +780,7 @@ const App = () => {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation();
-                          deleteGuest(guest.id, null);
+                          deleteGuest(guest.id, null, guest.name);
                         }}
                         className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
                         aria-label={`Delete ${guest.name}`}
@@ -952,7 +954,7 @@ const App = () => {
                       type="button"
                       onClick={(e) => {
                         e.stopPropagation();
-                        deleteGuest(guest.id, table.id);
+                        deleteGuest(guest.id, table.id, guest.name);
                       }}
                       className="p-0.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
                       aria-label={`Delete ${guest.name}`}
