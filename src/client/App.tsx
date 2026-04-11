@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check, Bus } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
 import GuestListPage from "./GuestListPage";
+import ShuttlePage from "./ShuttlePage";
 import type { Guest, Table, ColorGroup } from "../shared/types";
 
 // Default configuration constants
@@ -14,7 +15,7 @@ interface GroupColor {
 
 const App = () => {
   // Page navigation
-  const [currentPage, setCurrentPage] = useState<"planner" | "layout" | "guestlist">("planner");
+  const [currentPage, setCurrentPage] = useState<"planner" | "layout" | "guestlist" | "shuttle">("planner");
 
   const [guests, setGuests] = useState<Guest[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -688,6 +689,11 @@ const App = () => {
     return <GuestListPage onBack={() => setCurrentPage("planner")} />;
   }
 
+  // Render shuttle page if selected
+  if (currentPage === "shuttle") {
+    return <ShuttlePage onBack={() => setCurrentPage("planner")} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -795,6 +801,12 @@ const App = () => {
             className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
           >
             <ClipboardList size={20} /> Guest List
+          </button>
+          <button
+            onClick={() => setCurrentPage("shuttle")}
+            className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+          >
+            <Bus size={20} /> Shuttle
           </button>
           <button
             onClick={() => setCurrentPage("layout")}
