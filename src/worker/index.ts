@@ -12,6 +12,7 @@ interface Guest {
   table_id: string | null;
   table_position: number | null;
   arrived: number;
+  shuttle_time: string | null;
 }
 
 interface Table {
@@ -40,7 +41,7 @@ const api = new Hono<{ Bindings: Env }>();
 // Get all guests
 api.get("/guests", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, color, table_id, table_position, arrived FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
+    "SELECT id, name, color, table_id, table_position, arrived, shuttle_time FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
   ).all<Guest>();
   return c.json(results);
 });
@@ -56,7 +57,7 @@ api.post("/guests", async (c) => {
     .bind(id, name, color)
     .run();
 
-  return c.json({ id, name, color, table_id: null, table_position: null }, 201);
+  return c.json({ id, name, color, table_id: null, table_position: null, shuttle_time: null }, 201);
 });
 
 // Move a guest to a table (or unassign)
@@ -140,7 +141,7 @@ api.post("/guests/bulk", async (c) => {
   // Use batch for better performance
   const statements = validNames.map((name) => {
     const id = generateId();
-    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null, arrived: 0 });
+    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null, arrived: 0, shuttle_time: null });
     return c.env.DB.prepare(
       "INSERT INTO guests (id, name, color, table_id, table_position, arrived) VALUES (?, ?, ?, NULL, NULL, 0)"
     ).bind(id, name.trim(), color);
@@ -411,6 +412,43 @@ api.put("/guests/:id/arrive", async (c) => {
     "UPDATE guests SET arrived = ? WHERE id = ?"
   )
     .bind(arrived ? 1 : 0, guestId)
+    .run();
+
+  if (result.meta.changes === 0) {
+    return c.json({ error: "Guest not found" }, 404);
+  }
+
+  return c.json({ success: true });
+});
+
+// Update guest shuttle time
+api.put("/guests/:id/shuttle", async (c) => {
+  const guestId = c.req.param("id");
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    !("shuttle_time" in body)
+  ) {
+    return c.json({ error: "shuttle_time is required" }, 400);
+  }
+
+  const shuttleTime = (body as { shuttle_time: string | null }).shuttle_time;
+
+  if (shuttleTime !== null && (typeof shuttleTime !== "string" || !shuttleTime.trim())) {
+    return c.json({ error: "shuttle_time must be a non-empty string or null" }, 400);
+  }
+
+  const result = await c.env.DB.prepare(
+    "UPDATE guests SET shuttle_time = ? WHERE id = ?"
+  )
+    .bind(shuttleTime !== null ? shuttleTime.trim() : null, guestId)
     .run();
 
   if (result.meta.changes === 0) {

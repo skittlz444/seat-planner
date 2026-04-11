@@ -5,6 +5,7 @@ export interface Guest {
   table_id: string | null;
   table_position?: number | null;
   arrived?: number;
+  shuttle_time?: string | null;
 }
 
 export interface Table {
