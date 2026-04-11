@@ -179,14 +179,25 @@ api.put("/tables/:id/reorder", async (c) => {
     return c.json({ error: "guestIds must be a non-empty array" }, 400);
   }
 
-  // Verify all guestIds belong to this table
-  const placeholders = guestIds.map(() => "?").join(",");
-  const { results } = await c.env.DB.prepare(
-    `SELECT id FROM guests WHERE table_id = ? AND id IN (${placeholders})`
-  ).bind(tableId, ...guestIds).all<{ id: string }>();
+  // Reject duplicate guest IDs
+  if (new Set(guestIds).size !== guestIds.length) {
+    return c.json({ error: "guestIds must not contain duplicates" }, 400);
+  }
 
-  if (results.length !== guestIds.length) {
-    return c.json({ error: "Some guest IDs do not belong to this table" }, 400);
+  // Verify guestIds is a complete permutation of all guests at this table
+  const { results: tableGuests } = await c.env.DB.prepare(
+    "SELECT id FROM guests WHERE table_id = ?"
+  ).bind(tableId).all<{ id: string }>();
+
+  if (tableGuests.length !== guestIds.length) {
+    return c.json({ error: "guestIds must include all guests assigned to this table" }, 400);
+  }
+
+  const tableGuestIdSet = new Set(tableGuests.map((g) => g.id));
+  for (const id of guestIds) {
+    if (!tableGuestIdSet.has(id)) {
+      return c.json({ error: "Some guest IDs do not belong to this table" }, 400);
+    }
   }
 
   const statements = guestIds.map((guestId, index) =>

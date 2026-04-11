@@ -310,24 +310,32 @@ const App = () => {
     const { guestId, fromTableId } = draggedGuestId;
 
     // Handle reordering within the same table
-    if (fromTableId === toTableId && toTableId !== null && dropTarget) {
+    if (
+      fromTableId === toTableId &&
+      toTableId !== null &&
+      dropTarget &&
+      dropTarget.tableId === toTableId &&
+      dropTarget.tableId === fromTableId
+    ) {
       const table = tables.find((t) => t.id === toTableId);
       if (!table) return;
 
       const currentIndex = table.guests.findIndex((g) => g.id === guestId);
       if (currentIndex === -1) return;
 
+      // Build new order
       let targetIndex = dropTarget.index;
+      const newGuests = [...table.guests];
+      const [moved] = newGuests.splice(currentIndex, 1);
+      // Adjust target if it was after the removed item
+      if (targetIndex > currentIndex) targetIndex--;
+
+      // Bail out if the final position is the same
       if (targetIndex === currentIndex) {
         setDropTarget(null);
         return;
       }
 
-      // Build new order
-      const newGuests = [...table.guests];
-      const [moved] = newGuests.splice(currentIndex, 1);
-      // Adjust target if it was after the removed item
-      if (targetIndex > currentIndex) targetIndex--;
       newGuests.splice(targetIndex, 0, moved);
 
       // Optimistic UI update
@@ -418,6 +426,9 @@ const App = () => {
     e.stopPropagation();
     if (!draggedGuestId) return;
 
+    // Only show reorder indicator for same-table drags
+    if (draggedGuestId.fromTableId !== tableId) return;
+
     // Determine if we should insert before or after based on mouse position
     const rect = e.currentTarget.getBoundingClientRect();
     const midY = rect.top + rect.height / 2;
@@ -429,16 +440,22 @@ const App = () => {
   };
 
   const getGuestDropBorderClass = (tableId: string, guestId: string, guestIndex: number): string => {
+    const baseBorderClass = "border border-slate-100";
+
     if (
       dropTarget &&
       dropTarget.tableId === tableId &&
       draggedGuestId &&
       draggedGuestId.guestId !== guestId
     ) {
-      if (dropTarget.index === guestIndex) return "border-t-2 border-t-indigo-500";
-      if (dropTarget.index === guestIndex + 1) return "border-b-2 border-b-indigo-500";
+      if (dropTarget.index === guestIndex) {
+        return `${baseBorderClass} border-t-2 border-t-indigo-500`;
+      }
+      if (dropTarget.index === guestIndex + 1) {
+        return `${baseBorderClass} border-b-2 border-b-indigo-500`;
+      }
     }
-    return "border border-slate-100";
+    return baseBorderClass;
   };
 
   const filteredUnassigned = guests.filter((g) =>
