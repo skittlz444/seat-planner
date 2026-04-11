@@ -39,6 +39,9 @@ const GuestListPage = ({ onBack }: Props) => {
   // Search state
   const [searchTerm, setSearchTerm] = useState("");
 
+  // Toggle: show only guests with a table assigned (default: on)
+  const [showTabledOnly, setShowTabledOnly] = useState(true);
+
   // Arrival modal state
   const [arrivalModal, setArrivalModal] = useState<{
     guest: AllGuest;
@@ -231,6 +234,8 @@ const GuestListPage = ({ onBack }: Props) => {
 
   const groupedByColor = allGuests
     .filter((g) => {
+      // Filter out guests without a table when toggle is on
+      if (showTabledOnly && !g.table_id) return false;
       if (!searchTerm.trim()) return true;
       const term = searchTerm.trim().toLowerCase();
       const table = g.table_id ? tableMap.get(g.table_id) : null;
@@ -531,6 +536,21 @@ const GuestListPage = ({ onBack }: Props) => {
             </button>
           )}
         </div>
+
+        {/* Toggle: show only tabled guests */}
+        <label className="flex items-center gap-2 mt-3 print:hidden cursor-pointer select-none">
+          <div
+            role="switch"
+            aria-checked={showTabledOnly}
+            tabIndex={0}
+            onClick={() => setShowTabledOnly((v) => !v)}
+            onKeyDown={(e) => { if (e.key === " " || e.key === "Enter") { e.preventDefault(); setShowTabledOnly((v) => !v); } }}
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${showTabledOnly ? "bg-indigo-500" : "bg-slate-300"}`}
+          >
+            <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform ${showTabledOnly ? "translate-x-[18px]" : "translate-x-[3px]"}`} />
+          </div>
+          <span className="text-sm text-slate-600 font-medium">Show only guests with a table</span>
+        </label>
 
         {/* Progress bar */}
         <div className="w-full h-2 bg-slate-200 rounded-full overflow-hidden">
