@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard } from "lucide-react";
+import TableLayoutPage from "./TableLayoutPage";
 
 // Default configuration constants
 const DEFAULT_MAX_GUESTS_PER_TABLE = 16;
@@ -25,6 +26,9 @@ interface GroupColor {
 }
 
 const App = () => {
+  // Page navigation
+  const [currentPage, setCurrentPage] = useState<"planner" | "layout">("planner");
+
   const [guests, setGuests] = useState<Guest[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
   const [newGuestName, setNewGuestName] = useState("");
@@ -462,6 +466,11 @@ const App = () => {
     g.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
+  // Render layout page if selected
+  if (currentPage === "layout") {
+    return <TableLayoutPage onBack={() => setCurrentPage("planner")} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -564,6 +573,12 @@ const App = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => setCurrentPage("layout")}
+            className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+          >
+            <LayoutDashboard size={20} /> Table Layout
+          </button>
           <button
             onClick={addTable}
             className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
