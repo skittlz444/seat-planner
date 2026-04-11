@@ -80,8 +80,12 @@ api.put("/guests/:id", async (c) => {
   const guestId = c.req.param("id");
   const { name, color } = await c.req.json<{ name?: string; color?: string }>();
 
-  if (name !== undefined && (!name || !name.trim())) {
-    return c.json({ error: "Name cannot be empty" }, 400);
+  if (name !== undefined && (typeof name !== "string" || !name.trim())) {
+    return c.json({ error: "Name must be a non-empty string" }, 400);
+  }
+
+  if (color !== undefined && (typeof color !== "string" || !color.trim())) {
+    return c.json({ error: "Color must be a non-empty string" }, 400);
   }
 
   if (name === undefined && color === undefined) {

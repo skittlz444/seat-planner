@@ -723,14 +723,15 @@ const App = () => {
                         className="text-slate-300 shrink-0"
                       />
                       <div className="relative shrink-0">
-                        <div
-                          className="w-2.5 h-2.5 rounded-full cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-all"
+                        <button
+                          type="button"
+                          className="w-2.5 h-2.5 rounded-full cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-all border-0 p-0"
                           style={{ backgroundColor: guest.color }}
                           onClick={(e) => {
                             e.stopPropagation();
                             setEditingColorGuestId(editingColorGuestId === guest.id ? null : guest.id);
                           }}
-                          title="Click to change color"
+                          aria-label={`Change color for ${guest.name}`}
                         />
                         {editingColorGuestId === guest.id && (
                           <div className="absolute top-5 left-0 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-2 flex flex-wrap gap-1.5 w-[120px]"
@@ -774,12 +775,13 @@ const App = () => {
                         </span>
                       )}
                       <button
+                        type="button"
                         onClick={(e) => {
                           e.stopPropagation();
                           deleteGuest(guest.id, null);
                         }}
                         className="p-1 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
-                        title="Delete guest"
+                        aria-label={`Delete ${guest.name}`}
                       >
                         <X size={12} />
                       </button>
@@ -895,14 +897,15 @@ const App = () => {
                     style={{ borderLeftColor: guest.color }}
                   >
                     <div className="relative shrink-0">
-                      <div
-                        className="w-2 h-2 rounded-full cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-all"
+                      <button
+                        type="button"
+                        className="w-2 h-2 rounded-full cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-all border-0 p-0"
                         style={{ backgroundColor: guest.color }}
                         onClick={(e) => {
                           e.stopPropagation();
                           setEditingColorGuestId(editingColorGuestId === guest.id ? null : guest.id);
                         }}
-                        title="Click to change color"
+                        aria-label={`Change color for ${guest.name}`}
                       />
                       {editingColorGuestId === guest.id && (
                         <div className="absolute top-4 left-0 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-2 flex flex-wrap gap-1.5 w-[120px]"
@@ -946,12 +949,13 @@ const App = () => {
                       </span>
                     )}
                     <button
+                      type="button"
                       onClick={(e) => {
                         e.stopPropagation();
                         deleteGuest(guest.id, table.id);
                       }}
                       className="p-0.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
-                      title="Delete guest"
+                      aria-label={`Delete ${guest.name}`}
                     >
                       <X size={10} />
                     </button>
