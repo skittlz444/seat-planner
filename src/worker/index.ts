@@ -137,7 +137,7 @@ api.delete("/guests/:id", async (c) => {
 // Get all tables
 api.get("/tables", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, max_seats FROM tables ORDER BY name"
+    "SELECT id, name, max_seats FROM tables ORDER BY LENGTH(name), name"
   ).all<Table>();
   return c.json(results);
 });
