@@ -229,14 +229,11 @@ api.put("/tables/reorder", async (c) => {
     }
   }
 
-  const statements = tableIds.flatMap((tableId, index) => [
+  const statements = tableIds.map((tableId, index) =>
     c.env.DB.prepare(
-      "UPDATE tables SET sort_order = ? WHERE id = ?"
-    ).bind(index, tableId),
-    c.env.DB.prepare(
-      "UPDATE tables SET name = ? WHERE id = ?"
-    ).bind(`Table ${index + 1}`, tableId),
-  ]);
+      "UPDATE tables SET sort_order = ?, name = ? WHERE id = ?"
+    ).bind(index, `Table ${index + 1}`, tableId)
+  );
 
   await c.env.DB.batch(statements);
 
