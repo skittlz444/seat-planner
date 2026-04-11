@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+/* mobile-drag-drop polyfill: drag image styles for touch devices */
+.dnd-poly-drag-image {
+  opacity: 0.5 !important;
+}
+.dnd-poly-drag-image.dnd-poly-snapback {
+  transition-property: transform, -webkit-transform !important;
+  transition-duration: 250ms !important;
+  transition-timing-function: ease-out !important;
+}
+
+/* Allow the polyfill to intercept touch events on draggable elements */
+[draggable="true"] {
+  touch-action: none;
+}
+
 /* Pulse animation for highlighted guest in mini-table */
 @keyframes seat-pulse {
   0%, 100% { background-color: rgba(99, 102, 241, 0.15); }
