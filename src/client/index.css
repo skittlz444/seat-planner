@@ -18,3 +18,20 @@
     background-color: rgba(99, 102, 241, 0.20);
   }
 }
+
+@media print {
+  .guest-group-print-page {
+    break-inside: avoid-page;
+    page-break-inside: avoid;
+  }
+
+  .guest-group-print-page + .guest-group-print-page {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  .guest-list-row-print-safe {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

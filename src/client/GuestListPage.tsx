@@ -511,7 +511,7 @@ const GuestListPage = ({ onBack }: Props) => {
           return (
             <section
               key={colorHex}
-              className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
+              className="guest-group-print-page bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
             >
               <div
                 className="px-5 py-3 flex items-center justify-between"
@@ -540,7 +540,7 @@ const GuestListPage = ({ onBack }: Props) => {
                     return (
                       <div
                         key={guest.id}
-                        className={`flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-slate-50 transition-colors ${
+                        className={`guest-list-row-print-safe flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-slate-50 transition-colors ${
                           guest.arrived ? "bg-green-50/50" : ""
                         }`}
                         onClick={() => toggleArrival(guest)}
