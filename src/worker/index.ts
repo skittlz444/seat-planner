@@ -11,6 +11,7 @@ interface Guest {
   color: string;
   table_id: string | null;
   table_position: number | null;
+  arrived: number;
 }
 
 interface Table {
@@ -19,6 +20,11 @@ interface Table {
   nickname: string | null;
   max_seats: number;
   sort_order: number;
+}
+
+interface ColorGroup {
+  hex: string;
+  name: string;
 }
 
 const app = new Hono<{ Bindings: Env }>();
@@ -34,7 +40,7 @@ const api = new Hono<{ Bindings: Env }>();
 // Get all guests
 api.get("/guests", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, color, table_id, table_position FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
+    "SELECT id, name, color, table_id, table_position, arrived FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
   ).all<Guest>();
   return c.json(results);
 });
@@ -134,7 +140,7 @@ api.post("/guests/bulk", async (c) => {
   // Use batch for better performance
   const statements = validNames.map((name) => {
     const id = generateId();
-    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null });
+    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null, arrived: 0 });
     return c.env.DB.prepare(
       "INSERT INTO guests (id, name, color, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
     ).bind(id, name.trim(), color);
@@ -376,6 +382,84 @@ api.put("/canvas-layout", async (c) => {
     "INSERT OR REPLACE INTO canvas_layouts (id, items, updated_at) VALUES ('default', ?, datetime('now'))"
   )
     .bind(JSON.stringify(items))
+    .run();
+
+  return c.json({ success: true });
+});
+
+// Toggle guest arrival status
+api.put("/guests/:id/arrive", async (c) => {
+  const guestId = c.req.param("id");
+  const { arrived } = await c.req.json<{ arrived: boolean }>();
+
+  await c.env.DB.prepare("UPDATE guests SET arrived = ? WHERE id = ?")
+    .bind(arrived ? 1 : 0, guestId)
+    .run();
+
+  return c.json({ success: true });
+});
+
+// Reset all arrivals
+api.post("/guests/reset-arrivals", async (c) => {
+  // Return current arrival states before resetting (for undo)
+  const { results: arrivedGuests } = await c.env.DB.prepare(
+    "SELECT id FROM guests WHERE arrived = 1"
+  ).all<{ id: string }>();
+
+  await c.env.DB.prepare("UPDATE guests SET arrived = 0").run();
+
+  return c.json({ undoGuestIds: arrivedGuests.map((g) => g.id) });
+});
+
+// Undo reset arrivals (restore specific guests as arrived)
+api.post("/guests/undo-reset-arrivals", async (c) => {
+  const { guestIds } = await c.req.json<{ guestIds: string[] }>();
+
+  if (!guestIds || !Array.isArray(guestIds) || guestIds.length === 0) {
+    return c.json({ error: "guestIds must be a non-empty array" }, 400);
+  }
+
+  const statements = guestIds.map((id) =>
+    c.env.DB.prepare("UPDATE guests SET arrived = 1 WHERE id = ?").bind(id)
+  );
+
+  await c.env.DB.batch(statements);
+
+  return c.json({ success: true });
+});
+
+// Get all color groups
+api.get("/color-groups", async (c) => {
+  const { results } = await c.env.DB.prepare(
+    "SELECT hex, name FROM color_groups ORDER BY name"
+  ).all<ColorGroup>();
+  return c.json(results);
+});
+
+// Upsert a color group
+api.put("/color-groups/:hex", async (c) => {
+  const hex = decodeURIComponent(c.req.param("hex"));
+  const { name } = await c.req.json<{ name: string }>();
+
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return c.json({ error: "Name must be a non-empty string" }, 400);
+  }
+
+  await c.env.DB.prepare(
+    "INSERT OR REPLACE INTO color_groups (hex, name) VALUES (?, ?)"
+  )
+    .bind(hex, name.trim())
+    .run();
+
+  return c.json({ hex, name: name.trim() });
+});
+
+// Delete a color group
+api.delete("/color-groups/:hex", async (c) => {
+  const hex = decodeURIComponent(c.req.param("hex"));
+
+  await c.env.DB.prepare("DELETE FROM color_groups WHERE hex = ?")
+    .bind(hex)
     .run();
 
   return c.json({ success: true });

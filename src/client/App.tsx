@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
-import type { Guest, Table } from "../shared/types";
+import GuestListPage from "./GuestListPage";
+import type { Guest, Table, ColorGroup } from "../shared/types";
 
 // Default configuration constants
 const DEFAULT_MAX_GUESTS_PER_TABLE = 16;
@@ -13,7 +14,7 @@ interface GroupColor {
 
 const App = () => {
   // Page navigation
-  const [currentPage, setCurrentPage] = useState<"planner" | "layout">("planner");
+  const [currentPage, setCurrentPage] = useState<"planner" | "layout" | "guestlist">("planner");
 
   const [guests, setGuests] = useState<Guest[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -58,36 +59,49 @@ const App = () => {
   const [draggedTableId, setDraggedTableId] = useState<string | null>(null);
   const [tableDropTarget, setTableDropTarget] = useState<number | null>(null);
 
+  // Color group name editing
+  const [editingColorGroupHex, setEditingColorGroupHex] = useState<string | null>(null);
+  const [tempColorGroupName, setTempColorGroupName] = useState("");
+  const [colorGroupNames, setColorGroupNames] = useState<Record<string, string>>({});
+
   const showNotification = (message: string) => {
     setNotification(message);
     setTimeout(() => setNotification(null), 3000);
   };
 
-  const groupColors: GroupColor[] = [
-    { name: "Singapore - Hayden", hex: "#3b82f6" },
-    { name: "Singapore - Taryn", hex: "#ec4899" },
-    { name: "Sydney - Hayden", hex: "#10b981" },
-    { name: "Family - Hayden", hex: "#8b5cf6" },
-    { name: "Family - Taryn", hex: "#ef4444" },
-    { name: "KKU - Taryn", hex: "#f59e0b" },
-    { name: "UP - Taryn", hex: "#06b6d4" },
-    { name: "UDIS - Taryn", hex: "#6366f1" },
+  const defaultGroupColors: GroupColor[] = [
+    { name: "Blue", hex: "#3b82f6" },
+    { name: "Pink", hex: "#ec4899" },
+    { name: "Green", hex: "#10b981" },
+    { name: "Purple", hex: "#8b5cf6" },
+    { name: "Red", hex: "#ef4444" },
+    { name: "Amber", hex: "#f59e0b" },
+    { name: "Cyan", hex: "#06b6d4" },
+    { name: "Indigo", hex: "#6366f1" },
   ];
+
+  // Merge saved color group names with defaults
+  const groupColors: GroupColor[] = defaultGroupColors.map((c) => ({
+    ...c,
+    name: colorGroupNames[c.hex] || c.name,
+  }));
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      const [guestsRes, tablesRes] = await Promise.all([
+      const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
         fetch("/api/guests"),
         fetch("/api/tables"),
+        fetch("/api/color-groups"),
       ]);
 
-      if (!guestsRes.ok || !tablesRes.ok) {
+      if (!guestsRes.ok || !tablesRes.ok || !colorGroupsRes.ok) {
         throw new Error("Failed to fetch data");
       }
 
       const guestsData: Guest[] = await guestsRes.json();
       const tablesData: Array<{ id: string; name: string; nickname: string | null; max_seats: number; sort_order: number }> = await tablesRes.json();
+      const colorGroupsData: ColorGroup[] = await colorGroupsRes.json();
 
       setGuests(guestsData.filter((g: Guest) => !g.table_id));
       setTables(
@@ -98,6 +112,13 @@ const App = () => {
             .sort((a, b) => (a.table_position ?? 0) - (b.table_position ?? 0)),
         }))
       );
+
+      // Load saved color group names
+      const namesMap: Record<string, string> = {};
+      colorGroupsData.forEach((cg) => {
+        namesMap[cg.hex] = cg.name;
+      });
+      setColorGroupNames(namesMap);
       setError(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "An error occurred");
@@ -363,6 +384,31 @@ const App = () => {
       setEditingNicknameTableId(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to update table nickname");
+    }
+  };
+
+  const saveColorGroupName = async (hex: string) => {
+    const name = tempColorGroupName.trim();
+    if (!name) {
+      setEditingColorGroupHex(null);
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/color-groups/${encodeURIComponent(hex)}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+
+      if (!response.ok) throw new Error("Failed to save color group name");
+
+      setColorGroupNames((prev) => ({ ...prev, [hex]: name }));
+      showNotification(`Color group renamed to "${name}"`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to save color group name");
+    } finally {
+      setEditingColorGroupHex(null);
     }
   };
 
@@ -637,6 +683,11 @@ const App = () => {
     return <TableLayoutPage onBack={() => setCurrentPage("planner")} />;
   }
 
+  // Render guest list page if selected
+  if (currentPage === "guestlist") {
+    return <GuestListPage onBack={() => setCurrentPage("planner")} />;
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
@@ -740,6 +791,12 @@ const App = () => {
         </div>
         <div className="flex gap-2">
           <button
+            onClick={() => setCurrentPage("guestlist")}
+            className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+          >
+            <ClipboardList size={20} /> Guest List
+          </button>
+          <button
             onClick={() => setCurrentPage("layout")}
             className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
           >
@@ -801,6 +858,49 @@ const App = () => {
             >
               <UserPlus size={16} /> Bulk Add Guests
             </button>
+
+            {/* Color Group Legend */}
+            <div className="pt-4 border-t border-slate-100 mb-4">
+              <h3 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Color Groups
+              </h3>
+              <div className="space-y-1">
+                {groupColors.map((c) => (
+                  <div key={c.hex} className="flex items-center gap-2">
+                    <div
+                      className="w-3 h-3 rounded-full shrink-0"
+                      style={{ backgroundColor: c.hex }}
+                    />
+                    {editingColorGroupHex === c.hex ? (
+                      <input
+                        type="text"
+                        value={tempColorGroupName}
+                        onChange={(e) => setTempColorGroupName(e.target.value)}
+                        onBlur={() => saveColorGroupName(c.hex)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") saveColorGroupName(c.hex);
+                          else if (e.key === "Escape") setEditingColorGroupHex(null);
+                        }}
+                        autoFocus
+                        className="flex-1 text-xs text-slate-700 bg-white px-2 py-0.5 rounded border border-indigo-300 outline-none"
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="flex-1 text-xs text-slate-600 text-left hover:text-indigo-600 cursor-pointer bg-transparent border-none p-0 truncate"
+                        onClick={() => {
+                          setEditingColorGroupHex(c.hex);
+                          setTempColorGroupName(c.name);
+                        }}
+                        title="Click to rename group"
+                      >
+                        {c.name}
+                      </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
 
             <div className="pt-4 border-t border-slate-100">
               <div className="relative mb-4">
