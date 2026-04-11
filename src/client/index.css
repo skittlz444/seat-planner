@@ -35,6 +35,11 @@
     page-break-inside: avoid;
   }
 
+  .shuttle-group-print {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
   /* ── Planner main view: print-friendly tables ─────────────── */
 
   /* Hide interactive / non-essential elements */
