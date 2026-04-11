@@ -45,10 +45,10 @@ const App = () => {
   const [editingNicknameTableId, setEditingNicknameTableId] = useState<string | null>(null);
   const [tempNickname, setTempNickname] = useState("");
   
-  // Drag reorder state
-  const [dropTarget, setDropTarget] = useState<{
+  // Seat drop target state (which seat slot is being hovered)
+  const [seatDropTarget, setSeatDropTarget] = useState<{
     tableId: string;
-    index: number;
+    position: number;
   } | null>(null);
 
   // Bulk add modal state
@@ -436,61 +436,57 @@ const App = () => {
   const onDragEnd = (e: React.DragEvent) => {
     e.currentTarget.setAttribute("style", "opacity: 1");
     setDraggedGuestId(null);
-    setDropTarget(null);
+    setSeatDropTarget(null);
   };
 
-  const onDrop = async (e: React.DragEvent, toTableId: string | null) => {
+  const onDrop = async (e: React.DragEvent, toTableId: string | null, toPosition?: number) => {
     e.preventDefault();
     if (!draggedGuestId) return;
 
     const { guestId, fromTableId } = draggedGuestId;
 
-    // Handle reordering within the same table
+    // Handle within-table seat move
     if (
       fromTableId === toTableId &&
       toTableId !== null &&
-      dropTarget &&
-      dropTarget.tableId === toTableId &&
-      dropTarget.tableId === fromTableId
+      toPosition !== undefined
     ) {
       const table = tables.find((t) => t.id === toTableId);
       if (!table) return;
 
-      const currentIndex = table.guests.findIndex((g) => g.id === guestId);
-      if (currentIndex === -1) return;
+      const guest = table.guests.find((g) => g.id === guestId);
+      if (!guest) return;
 
-      // Build new order
-      let targetIndex = dropTarget.index;
-      const newGuests = [...table.guests];
-      const [moved] = newGuests.splice(currentIndex, 1);
-      // Adjust target if it was after the removed item
-      if (targetIndex > currentIndex) targetIndex--;
-
-      // Bail out if the final position is the same
-      if (targetIndex === currentIndex) {
-        setDropTarget(null);
+      const oldPosition = guest.table_position ?? 0;
+      if (oldPosition === toPosition) {
+        setSeatDropTarget(null);
         return;
       }
-
-      newGuests.splice(targetIndex, 0, moved);
 
       // Optimistic UI update
       setTables((prev) =>
         prev.map((t) =>
-          t.id === toTableId ? { ...t, guests: newGuests } : t
+          t.id === toTableId
+            ? {
+                ...t,
+                guests: t.guests.map((g) =>
+                  g.id === guestId ? { ...g, table_position: toPosition } : g
+                ),
+              }
+            : t
         )
       );
-      setDropTarget(null);
+      setSeatDropTarget(null);
 
       try {
-        const response = await fetch(`/api/tables/${toTableId}/reorder`, {
+        const response = await fetch(`/api/guests/${guestId}/move`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ guestIds: newGuests.map((g) => g.id) }),
+          body: JSON.stringify({ tableId: toTableId, position: toPosition }),
         });
-        if (!response.ok) throw new Error("Failed to reorder guests");
+        if (!response.ok) throw new Error("Failed to move guest");
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to reorder guests");
+        setError(err instanceof Error ? err.message : "Failed to move guest");
         fetchData(); // Revert on error
       }
       return;
@@ -520,10 +516,12 @@ const App = () => {
       const response = await fetch(`/api/guests/${guestId}/move`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableId: toTableId }),
+        body: JSON.stringify({ tableId: toTableId, position: toPosition ?? undefined }),
       });
 
       if (!response.ok) throw new Error("Failed to move guest");
+
+      const data: { success: boolean; position: number | null } = await response.json();
 
       // Process State Changes
       if (fromTableId === null) {
@@ -539,14 +537,15 @@ const App = () => {
       }
 
       if (toTableId === null) {
-        setGuests((prev) => [{ ...guestToMove!, table_id: null }, ...prev]);
+        setGuests((prev) => [{ ...guestToMove!, table_id: null, table_position: null }, ...prev]);
       } else {
+        const assignedPosition = toPosition ?? data.position ?? 0;
         setTables((prev) =>
           prev.map((t) =>
             t.id === toTableId
               ? {
                   ...t,
-                  guests: [...t.guests, { ...guestToMove!, table_id: toTableId }],
+                  guests: [...t.guests, { ...guestToMove!, table_id: toTableId, table_position: assignedPosition }],
                 }
               : t
           )
@@ -555,43 +554,17 @@ const App = () => {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to move guest");
     }
+    setSeatDropTarget(null);
   };
 
-  const onGuestDragOver = (e: React.DragEvent, tableId: string, index: number) => {
+  const onSeatDragOver = (e: React.DragEvent, tableId: string, position: number) => {
     e.preventDefault();
     e.stopPropagation();
     if (!draggedGuestId) return;
 
-    // Only show reorder indicator for same-table drags
-    if (draggedGuestId.fromTableId !== tableId) return;
-
-    // Determine if we should insert before or after based on mouse position
-    const rect = e.currentTarget.getBoundingClientRect();
-    const midY = rect.top + rect.height / 2;
-    const insertIndex = e.clientY < midY ? index : index + 1;
-
-    if (!dropTarget || dropTarget.tableId !== tableId || dropTarget.index !== insertIndex) {
-      setDropTarget({ tableId, index: insertIndex });
+    if (!seatDropTarget || seatDropTarget.tableId !== tableId || seatDropTarget.position !== position) {
+      setSeatDropTarget({ tableId, position });
     }
-  };
-
-  const getGuestDropBorderClass = (tableId: string, guestId: string, guestIndex: number): string => {
-    const baseBorderClass = "border border-slate-100";
-
-    if (
-      dropTarget &&
-      dropTarget.tableId === tableId &&
-      draggedGuestId &&
-      draggedGuestId.guestId !== guestId
-    ) {
-      if (dropTarget.index === guestIndex) {
-        return `${baseBorderClass} border-t-2 border-t-indigo-500`;
-      }
-      if (dropTarget.index === guestIndex + 1) {
-        return `${baseBorderClass} border-b-2 border-b-indigo-500`;
-      }
-    }
-    return baseBorderClass;
   };
 
   // Table drag-to-reorder handlers
@@ -1062,9 +1035,9 @@ const App = () => {
                     setTableDropTarget(null);
                   }
                 } else {
-                  // Clear drop target when leaving the table container
+                  // Clear seat drop target when leaving the table container
                   if (!e.currentTarget.contains(e.relatedTarget as Node)) {
-                    setDropTarget(null);
+                    setSeatDropTarget(null);
                   }
                 }
               }}
@@ -1188,105 +1161,144 @@ const App = () => {
               </div>
 
               <div className="grid grid-cols-2 gap-2 min-h-[140px] content-start">
-                {table.guests.map((guest, guestIndex) => (
-                  <div
-                    key={guest.id}
-                    draggable={editingGuestId !== guest.id}
-                    onMouseDown={() => primeDrag(guest.id, table.id)}
-                    onDragStart={(e) => {
-                      e.stopPropagation();
-                      onDragStart(e, guest.id, table.id);
-                    }}
-                    onDragEnd={onDragEnd}
-                    onDragOver={(e) => onGuestDragOver(e, table.id, guestIndex)}
-                    onDrop={(e) => {
-                      e.stopPropagation();
-                      onDrop(e, table.id);
-                    }}
-                    className={`flex items-center gap-2 bg-slate-50 p-2 rounded-lg border cursor-grab active:cursor-grabbing hover:bg-white hover:shadow-md transition-all border-l-4 select-none ${getGuestDropBorderClass(table.id, guest.id, guestIndex)}`}
-                    style={{ borderLeftColor: guest.color }}
-                  >
-                    <div className="relative shrink-0">
-                      <button
-                        type="button"
-                        className="w-2 h-2 rounded-full cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-all border-0 p-0"
-                        style={{ backgroundColor: guest.color }}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingColorGuestId(editingColorGuestId === guest.id ? null : guest.id);
-                        }}
-                        aria-label={`Change color for ${guest.name}`}
-                      />
-                      {editingColorGuestId === guest.id && (
-                        <div className="absolute top-4 left-0 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-2 flex flex-wrap gap-1.5 w-[120px]"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {groupColors.map((c) => (
-                            <button
-                              key={c.hex}
-                              type="button"
-                              onClick={() => changeGuestColor(guest.id, table.id, c.hex)}
-                              className={`w-5 h-5 rounded-full border-2 transition-all ${
-                                guest.color === c.hex
-                                  ? "border-slate-800 scale-110"
-                                  : "border-transparent hover:border-slate-300"
-                              }`}
-                              style={{ backgroundColor: c.hex }}
-                              title={c.name}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    {editingGuestId === guest.id ? (
-                      <input
-                        type="text"
-                        value={editingGuestName}
-                        onChange={(e) => setEditingGuestName(e.target.value)}
-                        onBlur={() => saveGuestName(guest.id, table.id)}
-                        onKeyDown={(e) => handleEditKeyDown(e, guest.id, table.id)}
-                        autoFocus
-                        className="flex-1 text-[11px] font-bold text-slate-700 bg-white px-2 py-1 rounded border border-indigo-300 outline-none"
-                        onClick={(e) => e.stopPropagation()}
-                      />
-                    ) : (
-                      <>
-                        {!!guest.arrived && (
-                          <span className="shrink-0 inline-flex items-center">
-                            <Check size={10} className="text-green-500" strokeWidth={3} aria-hidden="true" />
-                            <span className="sr-only">Arrived</span>
-                          </span>
-                        )}
-                        <span
-                          className="text-[11px] font-bold truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
-                          onClick={(e) => startEditingGuest(guest, e)}
-                          title="Click to edit name"
-                        >
-                          {guest.name}
-                        </span>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteGuest(guest.id, table.id, guest.name);
-                      }}
-                      className="p-0.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
-                      aria-label={`Delete ${guest.name}`}
-                    >
-                      <X size={10} />
-                    </button>
-                  </div>
-                ))}
+                {Array.from({ length: table.max_seats }, (_, slotIndex) => {
+                  const guest = table.guests.find(
+                    (g) => (g.table_position ?? 0) === slotIndex
+                  );
+                  const isDropHighlight =
+                    seatDropTarget &&
+                    seatDropTarget.tableId === table.id &&
+                    seatDropTarget.position === slotIndex &&
+                    draggedGuestId &&
+                    draggedGuestId.guestId !== guest?.id;
 
-                {table.guests.length === 0 && (
-                  <div className="col-span-full flex flex-col items-center justify-center py-10 text-slate-200 border-2 border-dashed border-slate-50 rounded-xl">
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-50">
-                      Drag Guests Here
-                    </p>
-                  </div>
-                )}
+                  if (guest) {
+                    return (
+                      <div
+                        key={guest.id}
+                        draggable={editingGuestId !== guest.id}
+                        onMouseDown={() => primeDrag(guest.id, table.id)}
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          onDragStart(e, guest.id, table.id);
+                        }}
+                        onDragEnd={onDragEnd}
+                        onDragOver={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
+                        onDrop={(e) => {
+                          e.stopPropagation();
+                          onDrop(e, table.id);
+                        }}
+                        className="flex items-center gap-2 bg-slate-50 p-2 rounded-lg border border-slate-100 cursor-grab active:cursor-grabbing hover:bg-white hover:shadow-md transition-all border-l-4 select-none"
+                        style={{ borderLeftColor: guest.color }}
+                      >
+                        <div className="relative shrink-0">
+                          <button
+                            type="button"
+                            className="w-2 h-2 rounded-full cursor-pointer hover:ring-2 hover:ring-offset-1 hover:ring-slate-300 transition-all border-0 p-0"
+                            style={{ backgroundColor: guest.color }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setEditingColorGuestId(editingColorGuestId === guest.id ? null : guest.id);
+                            }}
+                            aria-label={`Change color for ${guest.name}`}
+                          />
+                          {editingColorGuestId === guest.id && (
+                            <div className="absolute top-4 left-0 z-50 bg-white rounded-lg shadow-lg border border-slate-200 p-2 flex flex-wrap gap-1.5 w-[120px]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              {groupColors.map((c) => (
+                                <button
+                                  key={c.hex}
+                                  type="button"
+                                  onClick={() => changeGuestColor(guest.id, table.id, c.hex)}
+                                  className={`w-5 h-5 rounded-full border-2 transition-all ${
+                                    guest.color === c.hex
+                                      ? "border-slate-800 scale-110"
+                                      : "border-transparent hover:border-slate-300"
+                                  }`}
+                                  style={{ backgroundColor: c.hex }}
+                                  title={c.name}
+                                />
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                        {editingGuestId === guest.id ? (
+                          <input
+                            type="text"
+                            value={editingGuestName}
+                            onChange={(e) => setEditingGuestName(e.target.value)}
+                            onBlur={() => saveGuestName(guest.id, table.id)}
+                            onKeyDown={(e) => handleEditKeyDown(e, guest.id, table.id)}
+                            autoFocus
+                            className="flex-1 text-[11px] font-bold text-slate-700 bg-white px-2 py-1 rounded border border-indigo-300 outline-none"
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        ) : (
+                          <>
+                            {!!guest.arrived && (
+                              <span className="shrink-0 inline-flex items-center">
+                                <Check size={10} className="text-green-500" strokeWidth={3} aria-hidden="true" />
+                                <span className="sr-only">Arrived</span>
+                              </span>
+                            )}
+                            <span
+                              className="text-[11px] font-bold truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
+                              onClick={(e) => startEditingGuest(guest, e)}
+                              title="Click to edit name"
+                            >
+                              {guest.name}
+                            </span>
+                          </>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteGuest(guest.id, table.id, guest.name);
+                          }}
+                          className="p-0.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded transition-all shrink-0"
+                          aria-label={`Delete ${guest.name}`}
+                        >
+                          <X size={10} />
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  // Empty seat slot
+                  return (
+                    <div
+                      key={`empty-${slotIndex}`}
+                      onDragOver={(e) => onSeatDragOver(e, table.id, slotIndex)}
+                      onDragLeave={() => {
+                        if (
+                          seatDropTarget &&
+                          seatDropTarget.tableId === table.id &&
+                          seatDropTarget.position === slotIndex
+                        ) {
+                          setSeatDropTarget(null);
+                        }
+                      }}
+                      onDrop={(e) => {
+                        e.stopPropagation();
+                        onDrop(e, table.id, slotIndex);
+                      }}
+                      className={`flex items-center justify-center p-2 rounded-lg border-2 border-dashed transition-all min-h-[36px] ${
+                        isDropHighlight
+                          ? "border-indigo-400 bg-indigo-50"
+                          : "border-slate-100 bg-slate-50/50"
+                      }`}
+                    >
+                      <span className="text-[10px] text-slate-300 font-medium select-none">
+                        {isDropHighlight ? "Drop here" : `Seat ${slotIndex + 1}`}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           ))}
