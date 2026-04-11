@@ -151,6 +151,21 @@ const App = () => {
     fetchData();
   }, [fetchData]);
 
+  // Precompute position→guest maps per table for O(1) slot lookups
+  const seatMaps = useMemo(() => {
+    const maps: Record<string, Map<number, Guest>> = {};
+    for (const table of tables) {
+      const map = new Map<number, Guest>();
+      for (const guest of table.guests) {
+        if (guest.table_position !== null && guest.table_position !== undefined) {
+          map.set(guest.table_position, guest);
+        }
+      }
+      maps[table.id] = map;
+    }
+    return maps;
+  }, [tables]);
+
   const addGuest = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGuestName.trim()) return;
@@ -723,21 +738,6 @@ const App = () => {
       </div>
     );
   }
-
-  // Precompute position→guest maps per table for O(1) slot lookups
-  const seatMaps = useMemo(() => {
-    const maps: Record<string, Map<number, Guest>> = {};
-    for (const table of tables) {
-      const map = new Map<number, Guest>();
-      for (const guest of table.guests) {
-        if (guest.table_position !== null && guest.table_position !== undefined) {
-          map.set(guest.table_position, guest);
-        }
-      }
-      maps[table.id] = map;
-    }
-    return maps;
-  }, [tables]);
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
