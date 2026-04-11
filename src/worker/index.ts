@@ -235,8 +235,11 @@ api.put("/tables/:id", async (c) => {
     return c.json({ error: "nickname must be a string or null" }, 400);
   }
 
-  if (maxSeats !== undefined && nickname !== undefined) {
-    const trimmedNickname = nickname !== null ? nickname.trim() || null : null;
+  const trimmedNickname = nickname !== undefined
+    ? (nickname !== null ? nickname.trim() || null : null)
+    : undefined;
+
+  if (maxSeats !== undefined && trimmedNickname !== undefined) {
     await c.env.DB.prepare("UPDATE tables SET max_seats = ?, nickname = ? WHERE id = ?")
       .bind(maxSeats, trimmedNickname, tableId)
       .run();
@@ -244,8 +247,7 @@ api.put("/tables/:id", async (c) => {
     await c.env.DB.prepare("UPDATE tables SET max_seats = ? WHERE id = ?")
       .bind(maxSeats, tableId)
       .run();
-  } else if (nickname !== undefined) {
-    const trimmedNickname = nickname !== null ? nickname.trim() || null : null;
+  } else if (trimmedNickname !== undefined) {
     await c.env.DB.prepare("UPDATE tables SET nickname = ? WHERE id = ?")
       .bind(trimmedNickname, tableId)
       .run();
