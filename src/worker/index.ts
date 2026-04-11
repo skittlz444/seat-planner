@@ -104,9 +104,7 @@ api.put("/guests/:id/move", async (c) => {
     // and the highest existing position (handles sparse positions from past
     // capacity reductions).
     const guestCount = occupied.length + 1; // +1 for the guest being moved
-    const maxOccupiedPosition = occupiedPositions.length > 0
-      ? Math.max(...occupiedPositions)
-      : -1;
+    const maxOccupiedPosition = occupiedPositions.reduce((max, pos) => Math.max(max, pos), -1);
     const slotCount = Math.max(tableRow.max_seats, guestCount, maxOccupiedPosition + 1);
 
     if (position !== undefined && position !== null) {
