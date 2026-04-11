@@ -144,11 +144,15 @@ const ShuttlePage = ({ onBack }: Props) => {
   // Filter guests by search term
   const matchesSearch = (guest: ShuttleGuest): boolean => {
     if (!searchTerm.trim()) return true;
-    const term = searchTerm.toLowerCase();
+    const term = searchTerm.trim().toLowerCase();
+    const table = guest.table_id
+      ? tables.find((t) => t.id === guest.table_id)
+      : null;
     return (
       guest.name.toLowerCase().includes(term) ||
       getColorGroupName(guest.color).toLowerCase().includes(term) ||
-      getTableName(guest.table_id).toLowerCase().includes(term) ||
+      (table?.name.toLowerCase().includes(term) ?? false) ||
+      (table?.nickname?.toLowerCase().includes(term) ?? false) ||
       (guest.shuttle_time?.toLowerCase().includes(term) ?? false)
     );
   };
@@ -227,8 +231,7 @@ const ShuttlePage = ({ onBack }: Props) => {
             </h1>
             <p className="text-slate-500 font-medium print:hidden">
               {totalWithShuttle} of {allGuests.length} guests assigned a shuttle
-              time • {sortedShuttleTimes.length} time slot
-              {sortedShuttleTimes.length !== 1 ? "s" : ""}
+              time
             </p>
           </div>
         </div>
@@ -249,11 +252,13 @@ const ShuttlePage = ({ onBack }: Props) => {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Search guests, groups, tables, or shuttle times…"
+            aria-label="Search shuttle guests"
             className="w-full pl-9 pr-9 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
           />
           {searchTerm && (
             <button
               onClick={() => setSearchTerm("")}
+              aria-label="Clear search"
               className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
             >
               <X size={16} />
