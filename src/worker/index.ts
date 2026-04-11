@@ -462,10 +462,13 @@ api.put("/guests/:id/shuttle", async (c) => {
     return c.json({ error: "shuttle_time must be a non-empty string or null" }, 400);
   }
 
-  const result = await c.env.DB.prepare(
-    "UPDATE guests SET shuttle_time = ? WHERE id = ?"
-  )
-    .bind(shuttleTime !== null ? shuttleTime.trim() : null, guestId)
+  // When removing shuttle time, also clear shuttle_checked so the guest
+  // doesn't remain invisibly checked in the "No Shuttle Assigned" section.
+  const sql = shuttleTime === null
+    ? "UPDATE guests SET shuttle_time = NULL, shuttle_checked = 0 WHERE id = ?"
+    : "UPDATE guests SET shuttle_time = ? WHERE id = ?";
+  const result = await c.env.DB.prepare(sql)
+    .bind(...(shuttleTime === null ? [guestId] : [shuttleTime.trim(), guestId]))
     .run();
 
   if (result.meta.changes === 0) {

@@ -113,7 +113,14 @@ const ShuttlePage = ({ onBack }: Props) => {
 
       setAllGuests((prev) =>
         prev.map((g) =>
-          g.id === guestId ? { ...g, shuttle_time: shuttleTime } : g
+          g.id === guestId
+            ? {
+                ...g,
+                shuttle_time: shuttleTime,
+                // Clear shuttle_checked when removing shuttle time
+                ...(shuttleTime === null ? { shuttle_checked: false } : {}),
+              }
+            : g
         )
       );
       showNotification(
