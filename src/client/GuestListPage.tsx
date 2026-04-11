@@ -262,10 +262,10 @@ const GuestListPage = ({ onBack }: Props) => {
             const leftGuest = table.guests[rowIdx * 2];
             const rightGuest = table.guests[rowIdx * 2 + 1];
 
-            const renderSide = (guest: AllGuest | undefined, side: "left" | "right") => {
+            const renderSide = (guest: AllGuest | undefined, side: "left" | "right", seatIndex: number) => {
               if (!guest) {
                 return (
-                  <span className="w-2.5 h-2.5 rounded-full border border-amber-300 opacity-40 shrink-0" />
+                  <span className="w-2.5 h-2.5 rounded-full border border-amber-300 opacity-40 shrink-0" title={`Seat ${seatIndex + 1}`} />
                 );
               }
               const isHighlighted = guest.id === highlightGuestId;
@@ -279,6 +279,7 @@ const GuestListPage = ({ onBack }: Props) => {
                 <span
                   className={`truncate font-medium ${isHighlighted ? "text-indigo-700 font-bold" : ""}`}
                   style={!isHighlighted ? { color: "#3d2b1f" } : undefined}
+                  title={guest.name}
                 >
                   {guest.name}
                 </span>
@@ -294,7 +295,7 @@ const GuestListPage = ({ onBack }: Props) => {
               >
                 {/* Left side */}
                 <div className="flex-1 flex items-center gap-1 min-w-0">
-                  {renderSide(leftGuest, "left")}
+                  {renderSide(leftGuest, "left", rowIdx * 2)}
                 </div>
 
                 {/* Divider */}
@@ -302,7 +303,7 @@ const GuestListPage = ({ onBack }: Props) => {
 
                 {/* Right side */}
                 <div className="flex-1 flex items-center gap-1 justify-end min-w-0">
-                  {renderSide(rightGuest, "right")}
+                  {renderSide(rightGuest, "right", rowIdx * 2 + 1)}
                 </div>
               </div>
             );
