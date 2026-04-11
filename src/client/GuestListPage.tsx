@@ -511,7 +511,7 @@ const GuestListPage = ({ onBack }: Props) => {
           return (
             <section
               key={colorHex}
-              className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
+              className="guest-group-print-page bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
             >
               <div
                 className="px-5 py-3 flex items-center justify-between"
@@ -524,7 +524,7 @@ const GuestListPage = ({ onBack }: Props) => {
                   />
                   <h2 className="font-bold text-slate-800">{groupName}</h2>
                 </div>
-                <span className="text-xs font-bold text-slate-400">
+                <span className="text-xs font-bold text-slate-400 print:hidden">
                   {groupArrived}/{groupGuests.length} arrived
                 </span>
               </div>
@@ -540,7 +540,7 @@ const GuestListPage = ({ onBack }: Props) => {
                     return (
                       <div
                         key={guest.id}
-                        className={`flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-slate-50 transition-colors ${
+                        className={`guest-list-row-print-safe flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-slate-50 transition-colors ${
                           guest.arrived ? "bg-green-50/50" : ""
                         }`}
                         onClick={() => toggleArrival(guest)}
@@ -567,7 +567,7 @@ const GuestListPage = ({ onBack }: Props) => {
                             {guest.name}
                           </span>
                           {guestTable && (
-                            <span className="text-xs text-slate-400 ml-2">
+                            <span className="text-sm font-medium text-slate-600 ml-2 px-2 py-0.5 rounded border border-slate-200 bg-slate-100 print:bg-transparent whitespace-nowrap">
                               {guestTable.name}
                               {guestTable.nickname
                                 ? ` (${guestTable.nickname})`
