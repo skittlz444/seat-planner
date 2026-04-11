@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ArrowLeft, Check, RotateCcw, Undo2, X, MapPin, Search } from "lucide-react";
+import { ArrowLeft, Check, RotateCcw, Undo2, X, MapPin, Search, Printer } from "lucide-react";
 import type { Guest, ColorGroup } from "../shared/types";
 
 interface Props {
@@ -501,9 +501,15 @@ const GuestListPage = ({ onBack }: Props) => {
           </div>
           <div className="flex gap-2">
             <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-md active:scale-95 print:hidden"
+            >
+              <Printer size={16} /> Print
+            </button>
+            <button
               onClick={() => setShowResetConfirm(true)}
               disabled={arrivedCount === 0}
-              className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed print:hidden"
             >
               <RotateCcw size={16} /> Reset
             </button>

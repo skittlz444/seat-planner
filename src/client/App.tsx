@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check, Bus } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check, Bus, Printer } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
 import GuestListPage from "./GuestListPage";
 import ShuttlePage from "./ShuttlePage";
@@ -796,6 +796,12 @@ const App = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 print:hidden"
+          >
+            <Printer size={20} /> Print
+          </button>
           <button
             onClick={() => setCurrentPage("guestlist")}
             className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
