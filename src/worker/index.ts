@@ -390,11 +390,32 @@ api.put("/canvas-layout", async (c) => {
 // Toggle guest arrival status
 api.put("/guests/:id/arrive", async (c) => {
   const guestId = c.req.param("id");
-  const { arrived } = await c.req.json<{ arrived: boolean }>();
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
 
-  await c.env.DB.prepare("UPDATE guests SET arrived = ? WHERE id = ?")
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    typeof (body as Record<string, unknown>).arrived !== "boolean"
+  ) {
+    return c.json({ error: "arrived must be a boolean" }, 400);
+  }
+
+  const arrived = (body as { arrived: boolean }).arrived;
+
+  const result = await c.env.DB.prepare(
+    "UPDATE guests SET arrived = ? WHERE id = ?"
+  )
     .bind(arrived ? 1 : 0, guestId)
     .run();
+
+  if (result.meta.changes === 0) {
+    return c.json({ error: "Guest not found" }, 404);
+  }
 
   return c.json({ success: true });
 });
@@ -438,7 +459,12 @@ api.get("/color-groups", async (c) => {
 
 // Upsert a color group
 api.put("/color-groups/:hex", async (c) => {
-  const hex = decodeURIComponent(c.req.param("hex"));
+  const hex = decodeURIComponent(c.req.param("hex")).toLowerCase();
+
+  if (!/^#[0-9a-f]{6}$/.test(hex)) {
+    return c.json({ error: "hex must be a valid 6-digit hex color (e.g. #ff00aa)" }, 400);
+  }
+
   const { name } = await c.req.json<{ name: string }>();
 
   if (!name || typeof name !== "string" || !name.trim()) {

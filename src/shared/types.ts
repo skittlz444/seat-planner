@@ -4,7 +4,7 @@ export interface Guest {
   color: string;
   table_id: string | null;
   table_position?: number | null;
-  arrived?: boolean;
+  arrived?: number;
 }
 
 export interface Table {

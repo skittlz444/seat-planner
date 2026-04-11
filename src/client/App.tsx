@@ -878,8 +878,10 @@ const App = () => {
                         onChange={(e) => setTempColorGroupName(e.target.value)}
                         onBlur={() => saveColorGroupName(c.hex)}
                         onKeyDown={(e) => {
-                          if (e.key === "Enter") saveColorGroupName(c.hex);
-                          else if (e.key === "Escape") setEditingColorGroupHex(null);
+                          if (e.key === "Enter") {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                          } else if (e.key === "Escape") setEditingColorGroupHex(null);
                         }}
                         autoFocus
                         className="flex-1 text-xs text-slate-700 bg-white px-2 py-0.5 rounded border border-indigo-300 outline-none"

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowLeft, Check, RotateCcw, Undo2, X, MapPin } from "lucide-react";
 import type { Guest, ColorGroup } from "../shared/types";
 
@@ -6,10 +6,10 @@ interface Props {
   onBack: () => void;
 }
 
-interface AllGuest extends Guest {
+interface AllGuest extends Omit<Guest, "arrived"> {
   table_id: string | null;
   table_position?: number | null;
-  arrived?: boolean;
+  arrived: boolean;
 }
 
 interface TableInfo {
@@ -33,6 +33,9 @@ const GuestListPage = ({ onBack }: Props) => {
   // Confirmation modal state
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
+  // Notification timer ref
+  const notificationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Arrival modal state
   const [arrivalModal, setArrivalModal] = useState<{
     guest: AllGuest;
@@ -40,9 +43,24 @@ const GuestListPage = ({ onBack }: Props) => {
   } | null>(null);
 
   const showNotification = (message: string) => {
+    if (notificationTimerRef.current) {
+      clearTimeout(notificationTimerRef.current);
+    }
     setNotification(message);
-    setTimeout(() => setNotification(null), 3000);
+    notificationTimerRef.current = setTimeout(() => {
+      setNotification(null);
+      notificationTimerRef.current = null;
+    }, 3000);
   };
+
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (notificationTimerRef.current) {
+        clearTimeout(notificationTimerRef.current);
+      }
+    };
+  }, []);
 
   const fetchData = useCallback(async () => {
     try {
@@ -78,8 +96,9 @@ const GuestListPage = ({ onBack }: Props) => {
       }));
       setTables(enrichedTables);
       setColorGroups(colorGroupsData);
-    } catch {
-      // silent
+    } catch (error) {
+      console.error("Failed to load guest list data", error);
+      showNotification("Failed to load guest list data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -105,12 +124,6 @@ const GuestListPage = ({ onBack }: Props) => {
       }))
     );
 
-    // Show modal when marking as arrived (not when unmarking)
-    if (newArrived && guest.table_id) {
-      const table = tables.find((t) => t.id === guest.table_id) ?? null;
-      setArrivalModal({ guest: { ...guest, arrived: true }, table });
-    }
-
     try {
       const response = await fetch(`/api/guests/${guest.id}/arrive`, {
         method: "PUT",
@@ -118,6 +131,12 @@ const GuestListPage = ({ onBack }: Props) => {
         body: JSON.stringify({ arrived: newArrived }),
       });
       if (!response.ok) throw new Error("Failed to update arrival");
+
+      // Show modal when marking as arrived (only after successful API call)
+      if (newArrived && guest.table_id) {
+        const table = tables.find((t) => t.id === guest.table_id) ?? null;
+        setArrivalModal({ guest: { ...guest, arrived: true }, table });
+      }
     } catch {
       // Revert on error
       setAllGuests((prev) =>
@@ -133,6 +152,8 @@ const GuestListPage = ({ onBack }: Props) => {
           ),
         }))
       );
+      setArrivalModal(null);
+      showNotification("Failed to update arrival status");
     }
   };
 
@@ -372,11 +393,25 @@ const GuestListPage = ({ onBack }: Props) => {
                   </p>
                 )}
                 <div className="text-xs text-slate-400 ml-6 mb-2">
-                  Seat{" "}
-                  {Math.max(0, arrivalModal.table.guests.findIndex(
-                    (g) => g.id === arrivalModal.guest.id
-                  )) + 1}{" "}
-                  of {arrivalModal.table.max_seats}
+                  {(() => {
+                    const seatNumber =
+                      arrivalModal.guest.table_position != null
+                        ? arrivalModal.guest.table_position + 1
+                        : (() => {
+                            const guestIndex = arrivalModal.table.guests.findIndex(
+                              (g) => g.id === arrivalModal.guest.id
+                            );
+                            return guestIndex >= 0 ? guestIndex + 1 : null;
+                          })();
+
+                    return seatNumber != null ? (
+                      <>
+                        Seat {seatNumber} of {arrivalModal.table.max_seats}
+                      </>
+                    ) : (
+                      <>Seat unknown</>
+                    );
+                  })()}
                 </div>
 
                 {renderMiniTable(arrivalModal.table, arrivalModal.guest.id)}
