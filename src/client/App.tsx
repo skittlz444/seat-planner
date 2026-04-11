@@ -643,8 +643,15 @@ const App = () => {
 
     newTables.splice(targetIndex, 0, moved);
 
+    // Update table names and sort_order to match new positions
+    const renamedTables = newTables.map((t, i) => ({
+      ...t,
+      name: `Table ${i + 1}`,
+      sort_order: i,
+    }));
+
     // Optimistic UI update
-    setTables(newTables);
+    setTables(renamedTables);
     setDraggedTableId(null);
     setTableDropTarget(null);
 
