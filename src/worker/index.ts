@@ -354,14 +354,14 @@ api.put("/canvas-layout", async (c) => {
     return c.json({ error: "Items must be an array" }, 400);
   }
 
-  const VALID_TYPES = new Set(["table", "text", "line"]);
+  const VALID_TYPES = new Set(["table", "text", "line", "rect"]);
 
   for (const item of items) {
     if (!item || typeof item !== "object") {
       return c.json({ error: "Each item must be an object" }, 400);
     }
     if (typeof item.id !== "string" || !VALID_TYPES.has(item.type)) {
-      return c.json({ error: "Each item must have a string id and a valid type (table, text, line)" }, 400);
+      return c.json({ error: "Each item must have a string id and a valid type (table, text, line, rect)" }, 400);
     }
     if (item.type === "table") {
       if (typeof item.tableId !== "string" || typeof item.x !== "number" || typeof item.y !== "number" || typeof item.rotation !== "number") {
@@ -374,6 +374,10 @@ api.put("/canvas-layout", async (c) => {
     } else if (item.type === "line") {
       if (typeof item.x1 !== "number" || typeof item.y1 !== "number" || typeof item.x2 !== "number" || typeof item.y2 !== "number") {
         return c.json({ error: "Line items require numeric x1, y1, x2, y2" }, 400);
+      }
+    } else if (item.type === "rect") {
+      if (typeof item.x !== "number" || typeof item.y !== "number" || typeof item.width !== "number" || typeof item.height !== "number") {
+        return c.json({ error: "Rect items require numeric x, y, width, height" }, 400);
       }
     }
   }

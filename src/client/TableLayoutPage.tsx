@@ -328,7 +328,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
           const y = Math.min(rectStart.y, coords.y);
           const width = Math.abs(coords.x - rectStart.x);
           const height = Math.abs(coords.y - rectStart.y);
-          if (width > 5 || height > 5) {
+          if (width > 5 && height > 5) {
             const newRect: CanvasRectItem = {
               type: "rect",
               id: uid(),
