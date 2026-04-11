@@ -117,8 +117,7 @@ const ShuttlePage = ({ onBack }: Props) => {
             ? {
                 ...g,
                 shuttle_time: shuttleTime,
-                // Clear shuttle_checked when removing shuttle time
-                ...(shuttleTime === null ? { shuttle_checked: false } : {}),
+                shuttle_checked: shuttleTime === null ? false : g.shuttle_checked,
               }
             : g
         )
