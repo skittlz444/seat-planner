@@ -76,25 +76,69 @@ api.post("/guests", async (c) => {
 // Move a guest to a table (or unassign)
 api.put("/guests/:id/move", async (c) => {
   const guestId = c.req.param("id");
-  const { tableId } = await c.req.json<{ tableId: string | null }>();
+  const { tableId, position } = await c.req.json<{ tableId: string | null; position?: number }>();
 
   let tablePosition: number | null = null;
   
   if (tableId !== null) {
-    // Get the max position for this table
-    const { results } = await c.env.DB.prepare(
-      "SELECT MAX(table_position) as max_pos FROM guests WHERE table_id = ?"
-    ).bind(tableId).all<{ max_pos: number | null }>();
-    
-    const maxPos = results[0]?.max_pos;
-    tablePosition = maxPos !== null ? maxPos + 1 : 0;
+    // Get the table to know max_seats
+    const tableRow = await c.env.DB.prepare(
+      "SELECT max_seats FROM tables WHERE id = ?"
+    ).bind(tableId).first<{ max_seats: number }>();
+
+    if (!tableRow) {
+      return c.json({ error: "Table not found" }, 404);
+    }
+
+    // Get all occupied positions for this table (excluding the guest being moved)
+    const { results: occupied } = await c.env.DB.prepare(
+      "SELECT table_position FROM guests WHERE table_id = ? AND id != ?"
+    ).bind(tableId, guestId).all<{ table_position: number | null }>();
+
+    const occupiedSet = new Set(
+      occupied.map((r) => r.table_position).filter((p): p is number => p !== null)
+    );
+
+    if (position !== undefined && position !== null) {
+      // Specific seat requested – validate
+      if (!Number.isInteger(position) || position < 0 || position >= tableRow.max_seats) {
+        return c.json({ error: "Position out of range" }, 400);
+      }
+      if (occupiedSet.has(position)) {
+        return c.json({ error: "Seat is already occupied" }, 409);
+      }
+      tablePosition = position;
+    } else {
+      // Find the first empty seat
+      for (let i = 0; i < tableRow.max_seats; i++) {
+        if (!occupiedSet.has(i)) {
+          tablePosition = i;
+          break;
+        }
+      }
+      if (tablePosition === null) {
+        return c.json({ error: "Table is full" }, 409);
+      }
+    }
   }
 
-  await c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE id = ?")
-    .bind(tableId, tablePosition, guestId)
-    .run();
+  // Use batch to run inside a transaction — the UNIQUE index on
+  // (table_id, table_position) enforces that no two guests can
+  // occupy the same seat even under concurrent requests.
+  try {
+    await c.env.DB.batch([
+      c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE id = ?")
+        .bind(tableId, tablePosition, guestId),
+    ]);
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("UNIQUE constraint failed")) {
+      return c.json({ error: "Seat is already occupied" }, 409);
+    }
+    throw err;
+  }
 
-  return c.json({ success: true });
+  return c.json({ success: true, position: tablePosition });
 });
 
 // Update a guest's name and/or color
