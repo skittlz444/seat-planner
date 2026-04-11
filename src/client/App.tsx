@@ -111,20 +111,22 @@ const App = () => {
             .filter((g: Guest) => g.table_id === t.id)
             .sort((a, b) => (a.table_position ?? Infinity) - (b.table_position ?? Infinity));
 
-          // Normalize: assign first available seat to guests with null/undefined table_position
+          // Normalize: assign first available seat to guests with null/undefined/out-of-range table_position
           const usedPositions = new Set(
             tableGuests
               .map((g) => g.table_position)
-              .filter((p): p is number => p !== null && p !== undefined)
+              .filter((p): p is number => p !== null && p !== undefined && p >= 0 && p < t.max_seats)
           );
           let nextFree = 0;
           const normalized = tableGuests.map((g) => {
-            if (g.table_position === null || g.table_position === undefined) {
+            if (g.table_position === null || g.table_position === undefined || g.table_position < 0 || g.table_position >= t.max_seats) {
               while (usedPositions.has(nextFree)) nextFree++;
-              const assigned = nextFree;
-              usedPositions.add(assigned);
-              nextFree++;
-              return { ...g, table_position: assigned };
+              if (nextFree < t.max_seats) {
+                const assigned = nextFree;
+                usedPositions.add(assigned);
+                nextFree++;
+                return { ...g, table_position: assigned };
+              }
             }
             return g;
           });
