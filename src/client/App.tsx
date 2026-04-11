@@ -798,7 +798,7 @@ const App = () => {
         <div className="flex gap-2">
           <button
             onClick={() => window.print()}
-            className="flex items-center justify-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-700 px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 print:hidden"
+            className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 print:hidden"
           >
             <Printer size={20} /> Print
           </button>
