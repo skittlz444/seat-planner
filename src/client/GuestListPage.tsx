@@ -524,7 +524,7 @@ const GuestListPage = ({ onBack }: Props) => {
                   />
                   <h2 className="font-bold text-slate-800">{groupName}</h2>
                 </div>
-                <span className="text-xs font-bold text-slate-400">
+                <span className="text-xs font-bold text-slate-400 print:hidden">
                   {groupArrived}/{groupGuests.length} arrived
                 </span>
               </div>
