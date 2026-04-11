@@ -982,16 +982,18 @@ const App = () => {
                           onClick={(e) => e.stopPropagation()}
                         />
                       ) : (
-                        <span
-                          className="font-semibold text-xs truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
-                          onClick={(e) => startEditingGuest(guest, e)}
-                          title="Click to edit name"
-                        >
-                          {guest.name}
-                        </span>
-                      )}
-                      {!!guest.arrived && (
-                        <Check size={12} className="text-green-500 shrink-0" strokeWidth={3} aria-label="Arrived" />
+                        <>
+                          {!!guest.arrived && (
+                            <Check size={12} className="text-green-500 shrink-0" strokeWidth={3} role="img" aria-label="Arrived" />
+                          )}
+                          <span
+                            className="font-semibold text-xs truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
+                            onClick={(e) => startEditingGuest(guest, e)}
+                            title="Click to edit name"
+                          >
+                            {guest.name}
+                          </span>
+                        </>
                       )}
                       <button
                         type="button"
@@ -1230,16 +1232,18 @@ const App = () => {
                         onClick={(e) => e.stopPropagation()}
                       />
                     ) : (
-                      <span
-                        className="text-[11px] font-bold truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
-                        onClick={(e) => startEditingGuest(guest, e)}
-                        title="Click to edit name"
-                      >
-                        {guest.name}
-                      </span>
-                    )}
-                    {!!guest.arrived && (
-                      <Check size={10} className="text-green-500 shrink-0" strokeWidth={3} aria-label="Arrived" />
+                      <>
+                        {!!guest.arrived && (
+                          <Check size={10} className="text-green-500 shrink-0" strokeWidth={3} role="img" aria-label="Arrived" />
+                        )}
+                        <span
+                          className="text-[11px] font-bold truncate text-slate-700 cursor-pointer hover:text-indigo-600 flex-1"
+                          onClick={(e) => startEditingGuest(guest, e)}
+                          title="Click to edit name"
+                        >
+                          {guest.name}
+                        </span>
+                      </>
                     )}
                     <button
                       type="button"

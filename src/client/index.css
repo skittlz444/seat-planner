@@ -11,3 +11,10 @@
   animation: seat-pulse 1.5s ease-in-out infinite;
   border-radius: 4px;
 }
+
+@media (prefers-reduced-motion: reduce) {
+  .seat-highlight {
+    animation: none;
+    background-color: rgba(99, 102, 241, 0.20);
+  }
+}

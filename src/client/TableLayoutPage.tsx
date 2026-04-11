@@ -494,8 +494,12 @@ const TableLayoutPage = ({ onBack }: Props) => {
                     {leftGuest ? (
                       <>
                         {leftGuest.arrived ? (
-                          <span className="inline-flex items-center justify-center w-2 h-2 rounded-full shrink-0 bg-green-500" aria-label="Arrived">
-                            <Check size={6} className="text-white" strokeWidth={4} />
+                          <span
+                            className="inline-flex items-center justify-center w-2.5 h-2.5 shrink-0 rounded-sm bg-green-500"
+                            role="img"
+                            aria-label="Arrived"
+                          >
+                            <Check size={7} className="text-white" strokeWidth={4} aria-hidden="true" />
                           </span>
                         ) : (
                           <span
@@ -505,7 +509,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
                         )}
                         <span
                           className="truncate font-medium"
-                          style={{ color: "#3d2b1f" }}
+                          style={{ color: leftGuest.arrived ? "#94a3b8" : "#3d2b1f" }}
                         >
                           {leftGuest.name.charAt(0)}
                         </span>
@@ -524,13 +528,17 @@ const TableLayoutPage = ({ onBack }: Props) => {
                       <>
                         <span
                           className="truncate font-medium"
-                          style={{ color: "#3d2b1f" }}
+                          style={{ color: rightGuest.arrived ? "#94a3b8" : "#3d2b1f" }}
                         >
                           {rightGuest.name.charAt(0)}
                         </span>
                         {rightGuest.arrived ? (
-                          <span className="inline-flex items-center justify-center w-2 h-2 rounded-full shrink-0 bg-green-500" aria-label="Arrived">
-                            <Check size={6} className="text-white" strokeWidth={4} />
+                          <span
+                            className="inline-flex items-center justify-center w-2.5 h-2.5 shrink-0 rounded-sm bg-green-500"
+                            role="img"
+                            aria-label="Arrived"
+                          >
+                            <Check size={7} className="text-white" strokeWidth={4} aria-hidden="true" />
                           </span>
                         ) : (
                           <span
@@ -948,11 +956,12 @@ const TableLayoutPage = ({ onBack }: Props) => {
                       g.arrived ? (
                         <span
                           key={g.id}
-                          className="inline-flex items-center justify-center w-2 h-2 rounded-full bg-green-500"
+                          className="inline-flex items-center justify-center w-2.5 h-2.5 rounded-sm bg-green-500"
                           title={`${g.name} (arrived)`}
+                          role="img"
                           aria-label={`${g.name} arrived`}
                         >
-                          <Check size={6} className="text-white" strokeWidth={4} />
+                          <Check size={7} className="text-white" strokeWidth={4} aria-hidden="true" />
                         </span>
                       ) : (
                         <span
