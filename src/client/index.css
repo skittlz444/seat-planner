@@ -34,4 +34,69 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+
+  /* ── Planner main view: print-friendly tables ─────────────── */
+
+  /* Hide interactive / non-essential elements */
+  header button,
+  header .flex.gap-2,
+  .fixed,
+  [aria-label*="Delete"],
+  button[title="Remove Table"] {
+    display: none !important;
+  }
+
+  /* Hide sidebar (Guest Manager panel) */
+  main > section:first-child {
+    display: none !important;
+  }
+
+  /* Let the tables section span the full width */
+  main {
+    display: block !important;
+    max-width: 100% !important;
+    padding: 0 !important;
+  }
+
+  /* Tables grid: two columns side-by-side, each constrained */
+  main > section:last-child {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 12px !important;
+    align-items: start !important;
+  }
+
+  /* Each table card: avoid page break, constrained width */
+  main > section:last-child > div {
+    break-inside: avoid;
+    page-break-inside: avoid;
+    max-width: 100% !important;
+    box-shadow: none !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 8px !important;
+  }
+
+  /* Keep 2-column guest layout inside each table */
+  .grid-cols-2 {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+  }
+
+  /* Hide the "Add New Table" button card */
+  main > section:last-child > button {
+    display: none !important;
+  }
+
+  /* Reset page margins and background */
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Remove outer padding */
+  .min-h-screen {
+    padding: 8px !important;
+    min-height: auto !important;
+  }
 }
