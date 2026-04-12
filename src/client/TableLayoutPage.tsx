@@ -13,6 +13,7 @@ import {
   Check,
 } from "lucide-react";
 import type { Guest, Table } from "../shared/types";
+import { buildSeatMap } from "../shared/seatMap";
 
 // ── Canvas item types ────────────────────────────────────────────────────────
 
@@ -575,13 +576,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
           {/* Guest rows */}
           <div className="px-1" style={{ fontSize: 10 }}>
             {(() => {
-              // Build position→guest map so empty seats (gaps) are preserved
-              const seatMap = new Map<number, typeof table.guests[number]>();
-              for (const g of table.guests) {
-                if (g.table_position != null) {
-                  seatMap.set(g.table_position, g);
-                }
-              }
+              const seatMap = buildSeatMap(table.guests);
               return Array.from({ length: rows }).map((_, rowIdx) => {
               const leftGuest = seatMap.get(rowIdx * 2);
               const rightGuest = seatMap.get(rowIdx * 2 + 1);

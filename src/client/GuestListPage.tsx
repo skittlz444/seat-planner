@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ArrowLeft, Check, RotateCcw, Undo2, X, MapPin, Search, Printer } from "lucide-react";
 import type { Guest, ColorGroup } from "../shared/types";
+import { buildSeatMap } from "../shared/seatMap";
 
 interface Props {
   onBack: () => void;
@@ -288,13 +289,7 @@ const GuestListPage = ({ onBack }: Props) => {
         {/* Guest rows */}
         <div className="px-2 py-1" style={{ fontSize: 11 }}>
           {(() => {
-            // Build position→guest map so empty seats (gaps) are preserved
-            const seatMap = new Map<number, AllGuest>();
-            for (const g of table.guests) {
-              if (g.table_position != null) {
-                seatMap.set(g.table_position, g);
-              }
-            }
+            const seatMap = buildSeatMap(table.guests);
             return Array.from({ length: rows }).map((_, rowIdx) => {
             const leftGuest = seatMap.get(rowIdx * 2);
             const rightGuest = seatMap.get(rowIdx * 2 + 1);
