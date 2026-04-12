@@ -287,9 +287,17 @@ const GuestListPage = ({ onBack }: Props) => {
 
         {/* Guest rows */}
         <div className="px-2 py-1" style={{ fontSize: 11 }}>
-          {Array.from({ length: rows }).map((_, rowIdx) => {
-            const leftGuest = table.guests[rowIdx * 2];
-            const rightGuest = table.guests[rowIdx * 2 + 1];
+          {(() => {
+            // Build position→guest map so empty seats (gaps) are preserved
+            const seatMap = new Map<number, AllGuest>();
+            for (const g of table.guests) {
+              if (g.table_position != null) {
+                seatMap.set(g.table_position, g);
+              }
+            }
+            return Array.from({ length: rows }).map((_, rowIdx) => {
+            const leftGuest = seatMap.get(rowIdx * 2);
+            const rightGuest = seatMap.get(rowIdx * 2 + 1);
 
             const renderSide = (guest: AllGuest | undefined, side: "left" | "right", seatIndex: number) => {
               if (!guest) {
@@ -339,7 +347,8 @@ const GuestListPage = ({ onBack }: Props) => {
                 </div>
               </div>
             );
-          })}
+          });
+          })()}
         </div>
       </div>
     );

@@ -574,9 +574,17 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
           {/* Guest rows */}
           <div className="px-1" style={{ fontSize: 10 }}>
-            {Array.from({ length: rows }).map((_, rowIdx) => {
-              const leftGuest = table.guests[rowIdx * 2]; // position 0,2,4,...
-              const rightGuest = table.guests[rowIdx * 2 + 1]; // position 1,3,5,...
+            {(() => {
+              // Build position→guest map so empty seats (gaps) are preserved
+              const seatMap = new Map<number, typeof table.guests[number]>();
+              for (const g of table.guests) {
+                if (g.table_position != null) {
+                  seatMap.set(g.table_position, g);
+                }
+              }
+              return Array.from({ length: rows }).map((_, rowIdx) => {
+              const leftGuest = seatMap.get(rowIdx * 2);
+              const rightGuest = seatMap.get(rowIdx * 2 + 1);
               return (
                 <div
                   key={rowIdx}
@@ -647,7 +655,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
                   </div>
                 </div>
               );
-            })}
+            });
+            })()}
           </div>
 
           {/* Nickname running down the centre */}
