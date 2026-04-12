@@ -13,6 +13,7 @@ import {
   Check,
 } from "lucide-react";
 import type { Guest, Table } from "../shared/types";
+import { buildSeatMap } from "../shared/seatMap";
 
 // ── Canvas item types ────────────────────────────────────────────────────────
 
@@ -574,9 +575,11 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
           {/* Guest rows */}
           <div className="px-1" style={{ fontSize: 10 }}>
-            {Array.from({ length: rows }).map((_, rowIdx) => {
-              const leftGuest = table.guests[rowIdx * 2]; // position 0,2,4,...
-              const rightGuest = table.guests[rowIdx * 2 + 1]; // position 1,3,5,...
+            {(() => {
+              const seatMap = buildSeatMap(table.guests);
+              return Array.from({ length: rows }).map((_, rowIdx) => {
+              const leftGuest = seatMap.get(rowIdx * 2);
+              const rightGuest = seatMap.get(rowIdx * 2 + 1);
               return (
                 <div
                   key={rowIdx}
@@ -647,7 +650,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
                   </div>
                 </div>
               );
-            })}
+            });
+            })()}
           </div>
 
           {/* Nickname running down the centre */}
