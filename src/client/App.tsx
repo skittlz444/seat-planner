@@ -987,6 +987,7 @@ const App = () => {
                 className="h-[400px] overflow-y-auto bg-slate-50 rounded-xl p-3 border-2 border-dashed border-slate-200 scrollbar-hide"
                 onDrop={(e) => onDrop(e, null)}
                 onDragOver={(e) => e.preventDefault()}
+                onDragEnter={(e) => e.preventDefault()}
               >
                 <div className="space-y-1.5">
                   {filteredUnassigned.map((guest) => (
@@ -1095,6 +1096,7 @@ const App = () => {
                   e.preventDefault();
                 }
               }}
+              onDragEnter={(e) => e.preventDefault()}
               onDrop={(e) => {
                 if (draggedTableId) {
                   onTableDrop(e);
@@ -1262,6 +1264,10 @@ const App = () => {
                           e.preventDefault();
                           e.stopPropagation();
                         }}
+                        onDragEnter={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                        }}
                         onDrop={(e) => {
                           e.stopPropagation();
                           onDrop(e, table.id);
@@ -1349,6 +1355,7 @@ const App = () => {
                     <div
                       key={`empty-${slotIndex}`}
                       onDragOver={(e) => onSeatDragOver(e, table.id, slotIndex)}
+                      onDragEnter={(e) => e.preventDefault()}
                       onDragLeave={() => {
                         if (
                           seatDropTarget &&
