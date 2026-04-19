@@ -60,7 +60,6 @@ type Tool = "select" | "text" | "line" | "rect";
 const CANVAS_WIDTH = 4000;
 const CANVAS_HEIGHT = 3000;
 const TABLE_WIDTH = 110;
-const FULL_NAME_TABLE_WIDTH = 220;
 const ROW_HEIGHT = 20;
 const TABLE_HEADER_HEIGHT = 24;
 
@@ -517,7 +516,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
     return TABLE_HEADER_HEIGHT + rows * ROW_HEIGHT + 4; // 4px bottom padding
   };
 
-  const getTableWidth = () => (showFullNames ? FULL_NAME_TABLE_WIDTH : TABLE_WIDTH);
+  const getTableWidth = () => TABLE_WIDTH;
 
   // ── Render helpers ───────────────────────────────────────────────────────
 
