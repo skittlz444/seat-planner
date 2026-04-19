@@ -1081,7 +1081,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
             tabIndex={0}
             onClick={() => setShowFullNames((value) => !value)}
             onKeyDown={(e) => {
-              if ((e.code === "Space" || e.key === "Enter") && !e.repeat) {
+              if ((e.code === "Space" || e.code === "Enter") && !e.repeat) {
                 e.preventDefault();
                 setShowFullNames((value) => !value);
               }
