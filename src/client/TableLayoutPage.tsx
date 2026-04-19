@@ -968,6 +968,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
   const zoomIn = () => setZoom((z) => Math.min(z + 0.1, 2));
   const zoomOut = () => setZoom((z) => Math.max(z - 0.1, 0.2));
+  const toggleNameDisplay = () => setShowFullNames((value) => !value);
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -1079,16 +1080,11 @@ const TableLayoutPage = ({ onBack }: Props) => {
             role="switch"
             aria-checked={showFullNames}
             tabIndex={0}
-            onClick={() => setShowFullNames((value) => !value)}
+            onClick={toggleNameDisplay}
             onKeyDown={(e) => {
-              const isToggleKey =
-                e.key === " " ||
-                e.key === "Enter" ||
-                e.code === "Space" ||
-                e.code === "Enter";
-              if (isToggleKey && !e.repeat) {
+              if ((e.key === " " || e.key === "Enter") && !e.repeat) {
                 e.preventDefault();
-                setShowFullNames((value) => !value);
+                toggleNameDisplay();
               }
             }}
             className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
