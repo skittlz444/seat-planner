@@ -611,7 +611,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
                           />
                         )}
                         <span
-                          className={`truncate font-medium ${showFullNames ? "text-[9px]" : ""}`}
+                          className="truncate font-medium"
                           title={leftGuest.name}
                           style={{ color: leftGuest.arrived ? "#94a3b8" : "#3d2b1f" }}
                         >
@@ -631,7 +631,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
                     {rightGuest ? (
                       <>
                         <span
-                          className={`truncate font-medium ${showFullNames ? "text-[9px]" : ""}`}
+                          className="truncate font-medium"
                           title={rightGuest.name}
                           style={{ color: rightGuest.arrived ? "#94a3b8" : "#3d2b1f" }}
                         >
@@ -1081,7 +1081,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
             tabIndex={0}
             onClick={() => setShowFullNames((value) => !value)}
             onKeyDown={(e) => {
-              if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+              if ((e.code === "Space" || e.key === "Enter") && !e.repeat) {
                 e.preventDefault();
                 setShowFullNames((value) => !value);
               }
