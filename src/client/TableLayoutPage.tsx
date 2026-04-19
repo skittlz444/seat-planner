@@ -60,6 +60,7 @@ type Tool = "select" | "text" | "line" | "rect";
 const CANVAS_WIDTH = 4000;
 const CANVAS_HEIGHT = 3000;
 const TABLE_WIDTH = 110;
+const FULL_NAME_TABLE_WIDTH = 220;
 const ROW_HEIGHT = 20;
 const TABLE_HEADER_HEIGHT = 24;
 
@@ -83,6 +84,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>("select");
   const [zoom, setZoom] = useState(1);
+  const [showFullNames, setShowFullNames] = useState(false);
 
   // Drag state
   const [dragging, setDragging] = useState<{
@@ -461,9 +463,10 @@ const TableLayoutPage = ({ onBack }: Props) => {
         );
         return getTableHeight(Math.max(table.max_seats, table.guests.length, maxPos + 1));
       })() : 100;
+      const width = getTableWidth();
 
       // Center of the table in canvas coords
-      const centerX = tableItem.x + TABLE_WIDTH / 2;
+      const centerX = tableItem.x + width / 2;
       const centerY = tableItem.y + height / 2;
 
       const coords = getCanvasCoords(e);
@@ -477,7 +480,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         startRotation: tableItem.rotation,
       });
     },
-    [items, tables, getCanvasCoords]
+    [items, tables, getCanvasCoords, showFullNames]
   );
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
@@ -514,6 +517,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
     return TABLE_HEADER_HEIGHT + rows * ROW_HEIGHT + 4; // 4px bottom padding
   };
 
+  const getTableWidth = () => (showFullNames ? FULL_NAME_TABLE_WIDTH : TABLE_WIDTH);
+
   // ── Render helpers ───────────────────────────────────────────────────────
 
   const renderCanvasTable = (item: CanvasTableItem) => {
@@ -527,6 +532,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
     const slotCount = Math.max(table.max_seats, table.guests.length, maxPos + 1);
     const rows = Math.ceil(slotCount / 2);
     const height = getTableHeight(slotCount);
+    const width = getTableWidth();
     const isSelected = selectedId === item.id;
 
     return (
@@ -536,7 +542,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         style={{
           left: item.x,
           top: item.y,
-          width: TABLE_WIDTH,
+          width,
           height,
           transform: `rotate(${item.rotation}deg)`,
           transformOrigin: "center center",
@@ -605,10 +611,11 @@ const TableLayoutPage = ({ onBack }: Props) => {
                           />
                         )}
                         <span
-                          className="truncate font-medium"
+                          className={`truncate font-medium ${showFullNames ? "text-[9px]" : ""}`}
+                          title={leftGuest.name}
                           style={{ color: leftGuest.arrived ? "#94a3b8" : "#3d2b1f" }}
                         >
-                          {leftGuest.name.charAt(0)}
+                          {showFullNames ? leftGuest.name : leftGuest.name.charAt(0)}
                         </span>
                       </>
                     ) : (
@@ -624,10 +631,11 @@ const TableLayoutPage = ({ onBack }: Props) => {
                     {rightGuest ? (
                       <>
                         <span
-                          className="truncate font-medium"
+                          className={`truncate font-medium ${showFullNames ? "text-[9px]" : ""}`}
+                          title={rightGuest.name}
                           style={{ color: rightGuest.arrived ? "#94a3b8" : "#3d2b1f" }}
                         >
-                          {rightGuest.name.charAt(0)}
+                          {showFullNames ? rightGuest.name : rightGuest.name.charAt(0)}
                         </span>
                         {rightGuest.arrived ? (
                           <span
@@ -1065,6 +1073,33 @@ const TableLayoutPage = ({ onBack }: Props) => {
             <Square size={14} /> Rect
           </button>
         </div>
+
+        <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div
+            role="switch"
+            aria-checked={showFullNames}
+            tabIndex={0}
+            onClick={() => setShowFullNames((value) => !value)}
+            onKeyDown={(e) => {
+              if ((e.key === " " || e.key === "Enter") && !e.repeat) {
+                e.preventDefault();
+                setShowFullNames((value) => !value);
+              }
+            }}
+            className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
+              showFullNames ? "bg-indigo-500" : "bg-slate-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transform transition-transform ${
+                showFullNames ? "translate-x-[18px]" : "translate-x-[3px]"
+              }`}
+            />
+          </div>
+          <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+            Show full names
+          </span>
+        </label>
 
         {/* Zoom */}
         <div className="flex items-center gap-1 ml-auto">
