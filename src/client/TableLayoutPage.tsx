@@ -62,11 +62,12 @@ const CANVAS_WIDTH = 4000;
 const CANVAS_HEIGHT = 3000;
 const TABLE_WIDTH = 110;
 const MIN_TABLE_WIDTH = 90;
+const MAX_TABLE_WIDTH = 480;
 const ROW_HEIGHT = 20;
 const TABLE_HEADER_HEIGHT = 24;
 
 const clampTableWidth = (width: number) =>
-  Math.max(MIN_TABLE_WIDTH, Math.min(CANVAS_WIDTH, width));
+  Math.max(MIN_TABLE_WIDTH, Math.min(MAX_TABLE_WIDTH, width));
 
 const getTableWidth = (item: CanvasTableItem) =>
   clampTableWidth(item.width ?? TABLE_WIDTH);
@@ -794,7 +795,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
               style={{ transform: `translateY(-50%) rotate(${-item.rotation}deg)` }}
             >
               <button
-                className="flex h-8 w-4 items-center justify-center rounded-full bg-indigo-600 text-white shadow hover:bg-indigo-700 cursor-ew-resize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                className="flex h-8 w-4 items-center justify-center rounded-md bg-indigo-600 text-white shadow hover:bg-indigo-700 cursor-ew-resize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                 aria-label="Resize table width"
                 title="Drag to resize width"
                 onMouseDown={(e) => startResize(e, item.id)}
