@@ -24,6 +24,7 @@ interface CanvasTableItem {
   x: number;
   y: number;
   rotation: number;
+  width?: number;
 }
 
 interface CanvasTextItem {
@@ -60,9 +61,22 @@ type Tool = "select" | "text" | "line" | "rect";
 const CANVAS_WIDTH = 4000;
 const CANVAS_HEIGHT = 3000;
 const TABLE_WIDTH = 110;
-const FULL_NAME_TABLE_WIDTH = 220;
+const MIN_TABLE_WIDTH = 90;
+const MAX_TABLE_WIDTH = 480;
 const ROW_HEIGHT = 20;
 const TABLE_HEADER_HEIGHT = 24;
+
+const clampTableWidth = (width: number) =>
+  Math.max(MIN_TABLE_WIDTH, Math.min(MAX_TABLE_WIDTH, width));
+
+const getTableWidth = (item: CanvasTableItem) => {
+  const width =
+    typeof item.width === "number" && Number.isFinite(item.width)
+      ? item.width
+      : TABLE_WIDTH;
+
+  return clampTableWidth(width);
+};
 
 function uid(): string {
   return crypto.randomUUID();
@@ -100,6 +114,15 @@ const TableLayoutPage = ({ onBack }: Props) => {
     centerY: number;
     startAngle: number;
     startRotation: number;
+  } | null>(null);
+
+  // Table resize drag state
+  const [resizingTable, setResizingTable] = useState<{
+    id: string;
+    startWidth: number;
+    startX: number;
+    startY: number;
+    rotation: number;
   } | null>(null);
 
   // Line-drawing state
@@ -355,6 +378,18 @@ const TableLayoutPage = ({ onBack }: Props) => {
     (e: React.MouseEvent) => {
       const coords = getCanvasCoords(e);
 
+      // Resizing a table
+      if (resizingTable) {
+        const dx = coords.x - resizingTable.startX;
+        const dy = coords.y - resizingTable.startY;
+        const radians = (resizingTable.rotation * Math.PI) / 180;
+        const delta = dx * Math.cos(radians) + dy * Math.sin(radians);
+        updateItem(resizingTable.id, {
+          width: clampTableWidth(resizingTable.startWidth + delta),
+        } as Partial<CanvasItem>);
+        return;
+      }
+
       // Rotating an item
       if (rotating) {
         const dx = coords.x - rotating.centerX;
@@ -397,18 +432,20 @@ const TableLayoutPage = ({ onBack }: Props) => {
         setRectPreviewEnd(coords);
       }
     },
-    [rotating, lineDragging, dragging, tool, lineStart, rectStart, getCanvasCoords, updateItem]
+    [resizingTable, rotating, lineDragging, dragging, tool, lineStart, rectStart, getCanvasCoords, updateItem]
   );
 
   const handleCanvasMouseUp = useCallback(() => {
+    if (resizingTable) setResizingTable(null);
     if (dragging) setDragging(null);
     if (lineDragging) setLineDragging(null);
     if (rotating) setRotating(null);
-  }, [dragging, lineDragging, rotating]);
+  }, [resizingTable, dragging, lineDragging, rotating]);
 
   // Also handle mouseup outside canvas
   useEffect(() => {
     const handler = () => {
+      setResizingTable(null);
       setDragging(null);
       setLineDragging(null);
       setRotating(null);
@@ -416,6 +453,29 @@ const TableLayoutPage = ({ onBack }: Props) => {
     window.addEventListener("mouseup", handler);
     return () => window.removeEventListener("mouseup", handler);
   }, []);
+
+  const startResize = useCallback(
+    (e: React.MouseEvent, itemId: string) => {
+      if (tool !== "select" || e.button !== 0) return;
+
+      const item = items.find((it) => it.id === itemId);
+      if (!item || item.type !== "table") return;
+
+      e.stopPropagation();
+      e.preventDefault();
+
+      const coords = getCanvasCoords(e);
+      setResizingTable({
+        id: itemId,
+        startWidth: getTableWidth(item),
+        startX: coords.x,
+        startY: coords.y,
+        rotation: item.rotation,
+      });
+      setSelectedId(itemId);
+    },
+    [tool, items, getCanvasCoords]
+  );
 
   const startDrag = useCallback(
     (e: React.MouseEvent, itemId: string) => {
@@ -463,7 +523,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         );
         return getTableHeight(Math.max(table.max_seats, table.guests.length, maxPos + 1));
       })() : 100;
-      const width = getTableWidth();
+      const width = getTableWidth(tableItem);
 
       // Center of the table in canvas coords
       const centerX = tableItem.x + width / 2;
@@ -480,7 +540,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         startRotation: tableItem.rotation,
       });
     },
-    [items, tables, getCanvasCoords, showFullNames]
+    [items, tables, getCanvasCoords]
   );
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
@@ -517,8 +577,6 @@ const TableLayoutPage = ({ onBack }: Props) => {
     return TABLE_HEADER_HEIGHT + rows * ROW_HEIGHT + 4; // 4px bottom padding
   };
 
-  const getTableWidth = () => (showFullNames ? FULL_NAME_TABLE_WIDTH : TABLE_WIDTH);
-
   // ── Render helpers ───────────────────────────────────────────────────────
 
   const renderCanvasTable = (item: CanvasTableItem) => {
@@ -532,7 +590,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
     const slotCount = Math.max(table.max_seats, table.guests.length, maxPos + 1);
     const rows = Math.ceil(slotCount / 2);
     const height = getTableHeight(slotCount);
-    const width = getTableWidth();
+    const width = getTableWidth(item);
     const isSelected = selectedId === item.id;
 
     return (
@@ -735,6 +793,21 @@ const TableLayoutPage = ({ onBack }: Props) => {
                 }}
               >
                 <Trash2 size={12} />
+              </button>
+            </div>
+
+            {/* Resize handle */}
+            <div
+              className="absolute top-1/2 -right-3"
+              style={{ transform: `translateY(-50%) rotate(${-item.rotation}deg)` }}
+            >
+              <button
+                className="flex h-8 w-4 items-center justify-center rounded-md bg-indigo-600 text-white shadow hover:bg-indigo-700 cursor-ew-resize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
+                aria-label="Resize table width"
+                title="Drag to resize width"
+                onMouseDown={(e) => startResize(e, item.id)}
+              >
+                <span className="h-4 w-1 rounded-full bg-white/80" />
               </button>
             </div>
           </>
@@ -1136,7 +1209,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         {/* Rotate hint if table selected */}
         {selectedItem && selectedItem.type === "table" && (
           <span className="flex items-center gap-1 px-3 py-1.5 text-indigo-600 text-xs font-semibold">
-            <RotateCw size={14} /> Drag handle to rotate
+            <RotateCw size={14} /> Drag handles to rotate or resize
           </span>
         )}
       </div>
@@ -1229,7 +1302,8 @@ const TableLayoutPage = ({ onBack }: Props) => {
             <ul className="text-[10px] text-slate-500 space-y-1.5">
               <li>
                 <strong>Select:</strong> Click &amp; drag to move items.
-                Click table to select, drag the handle above to rotate.
+                Click table to select, drag the handle above to rotate, or
+                drag the side handle to resize width.
               </li>
               <li>
                 <strong>Text:</strong> Click on canvas to place text.
