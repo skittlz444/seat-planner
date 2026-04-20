@@ -794,7 +794,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
               style={{ transform: `translateY(-50%) rotate(${-item.rotation}deg)` }}
             >
               <button
-                className="flex h-8 w-4 items-center justify-center rounded-full bg-indigo-600 text-white shadow hover:bg-indigo-700 cursor-ew-resize"
+                className="flex h-8 w-4 items-center justify-center rounded-full bg-indigo-600 text-white shadow hover:bg-indigo-700 cursor-ew-resize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2"
                 aria-label="Resize table width"
                 title="Drag to resize width"
                 onMouseDown={(e) => startResize(e, item.id)}
