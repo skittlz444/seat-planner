@@ -274,7 +274,6 @@ const TableLayoutPage = ({ onBack }: Props) => {
         x,
         y,
         rotation: 0,
-        width: TABLE_WIDTH,
       };
       setItems((prev) => [...prev, item]);
     },
@@ -796,6 +795,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
             >
               <button
                 className="flex h-8 w-4 items-center justify-center rounded-full bg-indigo-600 text-white shadow hover:bg-indigo-700 cursor-ew-resize"
+                aria-label="Resize table width"
                 title="Drag to resize width"
                 onMouseDown={(e) => startResize(e, item.id)}
               >
