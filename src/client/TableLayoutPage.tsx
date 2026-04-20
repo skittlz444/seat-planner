@@ -69,8 +69,14 @@ const TABLE_HEADER_HEIGHT = 24;
 const clampTableWidth = (width: number) =>
   Math.max(MIN_TABLE_WIDTH, Math.min(MAX_TABLE_WIDTH, width));
 
-const getTableWidth = (item: CanvasTableItem) =>
-  clampTableWidth(item.width ?? TABLE_WIDTH);
+const getTableWidth = (item: CanvasTableItem) => {
+  const width =
+    typeof item.width === "number" && Number.isFinite(item.width)
+      ? item.width
+      : TABLE_WIDTH;
+
+  return clampTableWidth(width);
+};
 
 function uid(): string {
   return crypto.randomUUID();
@@ -450,9 +456,10 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
   const startResize = useCallback(
     (e: React.MouseEvent, itemId: string) => {
+      if (tool !== "select" || e.button !== 0) return;
+
       e.stopPropagation();
       e.preventDefault();
-      if (tool !== "select") return;
 
       const item = items.find((it) => it.id === itemId);
       if (!item || item.type !== "table") return;

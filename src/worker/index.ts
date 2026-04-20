@@ -476,8 +476,8 @@ api.put("/canvas-layout", async (c) => {
       if (typeof item.tableId !== "string" || typeof item.x !== "number" || typeof item.y !== "number" || typeof item.rotation !== "number") {
         return c.json({ error: "Table items require string tableId and numeric x, y, rotation" }, 400);
       }
-      if (item.width !== undefined && (typeof item.width !== "number" || item.width <= 0)) {
-        return c.json({ error: "Table item width must be a positive number when provided" }, 400);
+      if (item.width !== undefined && (!Number.isFinite(item.width) || item.width <= 0)) {
+        return c.json({ error: "Table item width must be a finite positive number when provided" }, 400);
       }
     } else if (item.type === "text") {
       if (typeof item.x !== "number" || typeof item.y !== "number" || typeof item.text !== "string") {
