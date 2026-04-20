@@ -458,11 +458,11 @@ const TableLayoutPage = ({ onBack }: Props) => {
     (e: React.MouseEvent, itemId: string) => {
       if (tool !== "select" || e.button !== 0) return;
 
-      e.stopPropagation();
-      e.preventDefault();
-
       const item = items.find((it) => it.id === itemId);
       if (!item || item.type !== "table") return;
+
+      e.stopPropagation();
+      e.preventDefault();
 
       const coords = getCanvasCoords(e);
       setResizingTable({
