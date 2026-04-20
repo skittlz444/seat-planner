@@ -372,7 +372,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
     (e: React.MouseEvent) => {
       const coords = getCanvasCoords(e);
 
-      // Rotating an item
+      // Resizing a table
       if (resizingTable) {
         const dx = coords.x - resizingTable.startX;
         const dy = coords.y - resizingTable.startY;
