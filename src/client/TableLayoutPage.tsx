@@ -462,7 +462,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         );
         return getTableHeight(Math.max(table.max_seats, table.guests.length, maxPos + 1));
       })() : 100;
-      const width = getTableWidth();
+      const width = TABLE_WIDTH;
 
       // Center of the table in canvas coords
       const centerX = tableItem.x + width / 2;
@@ -479,7 +479,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
         startRotation: tableItem.rotation,
       });
     },
-    [items, tables, getCanvasCoords, showFullNames]
+    [items, tables, getCanvasCoords]
   );
 
   // ── Keyboard shortcuts ───────────────────────────────────────────────────
@@ -516,8 +516,6 @@ const TableLayoutPage = ({ onBack }: Props) => {
     return TABLE_HEADER_HEIGHT + rows * ROW_HEIGHT + 4; // 4px bottom padding
   };
 
-  const getTableWidth = () => TABLE_WIDTH;
-
   // ── Render helpers ───────────────────────────────────────────────────────
 
   const renderCanvasTable = (item: CanvasTableItem) => {
@@ -531,7 +529,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
     const slotCount = Math.max(table.max_seats, table.guests.length, maxPos + 1);
     const rows = Math.ceil(slotCount / 2);
     const height = getTableHeight(slotCount);
-    const width = getTableWidth();
+    const width = TABLE_WIDTH;
     const isSelected = selectedId === item.id;
 
     return (
