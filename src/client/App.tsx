@@ -232,6 +232,8 @@ const App = () => {
     const tableToRemove = tables.find((t) => t.id === tableId);
     if (!tableToRemove) return;
 
+    if (!window.confirm(`Delete table "${tableToRemove.name}"?`)) return;
+
     try {
       const response = await fetch(`/api/tables/${tableId}`, {
         method: "DELETE",
