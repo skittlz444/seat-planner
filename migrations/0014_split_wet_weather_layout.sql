@@ -118,7 +118,7 @@ WHERE id NOT IN (SELECT DISTINCT person_id FROM guests);
 -- were not seated at moved wet-weather tables still need an unassigned seat
 -- assignment row so they remain visible when switching layouts.
 INSERT OR IGNORE INTO guests (id, person_id, layout_id, table_id, table_position)
-SELECT 'wet-weather-' || people.id, people.id, 'wet-weather', NULL, NULL
+SELECT lower(hex(randomblob(16))), people.id, 'wet-weather', NULL, NULL
 FROM people
 WHERE NOT EXISTS (
   SELECT 1

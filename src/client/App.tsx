@@ -175,14 +175,20 @@ const App = () => {
   }, [currentLayoutId]);
 
   const fetchLayouts = useCallback(async () => {
+    const layoutId = currentLayoutId;
+
     try {
       const res = await fetch("/api/layouts");
       if (!res.ok) return;
       const data: Layout[] = await res.json();
       setLayouts(data);
-      if (data.length > 0 && !data.some((layout) => layout.id === currentLayoutId)) {
-        setCurrentLayoutId(data[0].id);
-      }
+      setCurrentLayoutId((selectedLayoutId) =>
+        data.length > 0 &&
+        selectedLayoutId === layoutId &&
+        !data.some((layout) => layout.id === selectedLayoutId)
+          ? data[0].id
+          : selectedLayoutId
+      );
     } catch {
       // non-fatal
     }
