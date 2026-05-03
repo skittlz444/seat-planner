@@ -16,10 +16,13 @@ VALUES ('wet-weather', 'Wet Weather', '[]', datetime('now'));
 -- Give the original layout a user-facing name now that layouts are named.
 UPDATE layouts
 SET name = 'Main'
-WHERE id = 'default' AND name = 'Layout 1';
+WHERE id = 'default';
 
--- Move all tables after table 9 into the wet-weather layout. Keep table IDs
--- intact so existing seat assignments and canvas table references remain valid.
+-- Move all tables after table 9 into the wet-weather layout. In the app's
+-- zero-based sort_order, table 10 is sort_order 9, so sort_order >= 9 is the
+-- "after table 9" boundary. Keep table IDs intact so existing seat assignments
+-- and canvas table references remain valid; subtracting 9 makes the moved
+-- wet-weather tables start at sort_order 0 within their new layout.
 UPDATE tables
 SET
   layout_id = 'wet-weather',
