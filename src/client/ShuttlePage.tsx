@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ArrowLeft, Bus, Clock, Printer, X, Search, Check, RotateCcw, Undo2 } from "lucide-react";
-import type { Guest, ColorGroup } from "../shared/types";
+import type { Guest, ColorGroup, Layout } from "../shared/types";
 
 interface Props {
   layoutId: string;
+  layouts: Layout[];
+  onLayoutChange?: (id: string) => void;
   onBack: () => void;
 }
 
@@ -18,7 +20,8 @@ interface TableInfo {
   nickname: string | null;
 }
 
-const ShuttlePage = ({ layoutId, onBack }: Props) => {
+const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
+  const [activeLayoutId, setActiveLayoutId] = useState(layoutId);
   const [allGuests, setAllGuests] = useState<ShuttleGuest[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [colorGroups, setColorGroups] = useState<ColorGroup[]>([]);
@@ -55,8 +58,8 @@ const ShuttlePage = ({ layoutId, onBack }: Props) => {
     try {
       setLoading(true);
       const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
-        fetch(`/api/guests?layout=${layoutId}`),
-        fetch(`/api/tables?layout=${layoutId}`),
+        fetch(`/api/guests?layout=${activeLayoutId}`),
+        fetch(`/api/tables?layout=${activeLayoutId}`),
         fetch("/api/color-groups"),
       ]);
 
@@ -82,7 +85,7 @@ const ShuttlePage = ({ layoutId, onBack }: Props) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeLayoutId]);
 
   useEffect(() => {
     fetchData();
@@ -371,7 +374,27 @@ const ShuttlePage = ({ layoutId, onBack }: Props) => {
             </p>
           </div>
         </div>
-        <div className="flex gap-2 print:hidden">
+        <div className="flex flex-wrap gap-2 print:hidden">
+          {layouts.length > 1 && (
+            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+              {layouts.map((layout) => (
+                <button
+                  key={layout.id}
+                  onClick={() => {
+                    setActiveLayoutId(layout.id);
+                    onLayoutChange?.(layout.id);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                    activeLayoutId === layout.id
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {layout.name}
+                </button>
+              ))}
+            </div>
+          )}
           <button
             onClick={() => window.print()}
             className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"

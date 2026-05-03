@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { ArrowLeft, Check, RotateCcw, Undo2, X, MapPin, Search, Printer } from "lucide-react";
-import type { Guest, ColorGroup } from "../shared/types";
+import type { Guest, ColorGroup, Layout } from "../shared/types";
 import { buildSeatMap } from "../shared/seatMap";
 
 interface Props {
   layoutId: string;
+  layouts: Layout[];
+  onLayoutChange?: (id: string) => void;
   onBack: () => void;
 }
 
@@ -22,7 +24,8 @@ interface TableInfo {
   guests: AllGuest[];
 }
 
-const GuestListPage = ({ layoutId, onBack }: Props) => {
+const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
+  const [activeLayoutId, setActiveLayoutId] = useState(layoutId);
   const [allGuests, setAllGuests] = useState<AllGuest[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [colorGroups, setColorGroups] = useState<ColorGroup[]>([]);
@@ -74,8 +77,8 @@ const GuestListPage = ({ layoutId, onBack }: Props) => {
     try {
       setLoading(true);
       const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
-        fetch(`/api/guests?layout=${layoutId}`),
-        fetch(`/api/tables?layout=${layoutId}`),
+        fetch(`/api/guests?layout=${activeLayoutId}`),
+        fetch(`/api/tables?layout=${activeLayoutId}`),
         fetch("/api/color-groups"),
       ]);
 
@@ -110,7 +113,7 @@ const GuestListPage = ({ layoutId, onBack }: Props) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [activeLayoutId]);
 
   useEffect(() => {
     fetchData();
@@ -513,6 +516,26 @@ const GuestListPage = ({ layoutId, onBack }: Props) => {
               {arrivedCount} of {totalGuests} arrived
             </p>
           </div>
+          {layouts.length > 1 && (
+            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 print:hidden">
+              {layouts.map((layout) => (
+                <button
+                  key={layout.id}
+                  onClick={() => {
+                    setActiveLayoutId(layout.id);
+                    onLayoutChange?.(layout.id);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                    activeLayoutId === layout.id
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {layout.name}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <label className="flex items-center gap-2 print:hidden cursor-pointer select-none">
               <div
@@ -641,17 +664,19 @@ const GuestListPage = ({ layoutId, onBack }: Props) => {
                           >
                             {guest.name}
                           </span>
-                          {guestTable && (
-                            <span className="text-sm font-medium text-slate-600 ml-2 px-2 py-0.5 rounded border border-slate-200 bg-slate-100 print:bg-transparent whitespace-nowrap">
-                              {guestTable.name}
-                              {guestTable.nickname && (
-                                <span className="print:hidden">
-                                  {` (${guestTable.nickname})`}
-                                </span>
-                              )}
-                            </span>
-                          )}
                         </div>
+                        {guestTable ? (
+                          <span className="shrink-0 text-sm font-medium text-slate-600 px-2 py-0.5 rounded border border-slate-200 bg-slate-100 print:bg-transparent whitespace-nowrap">
+                            {guestTable.name}
+                            {guestTable.nickname && (
+                              <span className="print:hidden">
+                                {` (${guestTable.nickname})`}
+                              </span>
+                            )}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 w-20" />
+                        )}
                         {guest.arrived && (
                           <span className="text-xs font-bold text-green-500">
                             ✓ Here
