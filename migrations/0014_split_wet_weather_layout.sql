@@ -114,6 +114,19 @@ WHERE layout_id = 'wet-weather'
 DELETE FROM people
 WHERE id NOT IN (SELECT DISTINCT person_id FROM guests);
 
+-- Keep the Wet Weather layout on the same shared roster as Main. Guests who
+-- were not seated at moved wet-weather tables still need an unassigned seat
+-- assignment row so they remain visible when switching layouts.
+INSERT OR IGNORE INTO guests (id, person_id, layout_id, table_id, table_position)
+SELECT 'wet-weather-' || people.id, people.id, 'wet-weather', NULL, NULL
+FROM people
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM guests
+  WHERE guests.person_id = people.id
+    AND guests.layout_id = 'wet-weather'
+);
+
 -- Split canvas items. A canvas item belongs to Wet Weather if either:
 --   * it is a table item for one of the moved wet-weather table IDs, or
 --   * it is a drawing/text item in the right-hand wet-weather canvas area.

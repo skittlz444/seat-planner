@@ -37,6 +37,13 @@ function generateId(): string {
   return crypto.randomUUID();
 }
 
+async function layoutExists(db: D1Database, layoutId: string): Promise<boolean> {
+  const row = await db.prepare("SELECT 1 FROM layouts WHERE id = ?")
+    .bind(layoutId)
+    .first();
+  return row !== null;
+}
+
 // API Routes
 const api = new Hono<{ Bindings: Env }>();
 
@@ -183,6 +190,10 @@ api.put("/layouts/:id", async (c) => {
 api.delete("/layouts/:id", async (c) => {
   const layoutId = c.req.param("id");
 
+  if (layoutId === "default") {
+    return c.json({ error: "Cannot delete the default layout" }, 400);
+  }
+
   // Prevent deleting the only layout
   const { results: all } = await c.env.DB.prepare(
     "SELECT id FROM layouts"
@@ -225,16 +236,25 @@ api.post("/guests", async (c) => {
   const { name, color, layoutId: rawLayoutId } = await c.req.json<{ name: string; color: string; layoutId?: string }>();
   const layoutId = rawLayoutId || "default";
 
+  const { results: layouts } = await c.env.DB.prepare(
+    "SELECT id FROM layouts"
+  ).all<{ id: string }>();
+
+  if (!layouts.some((layout) => layout.id === layoutId)) {
+    return c.json({ error: "Layout not found" }, 404);
+  }
+
   const personId = generateId();
-  const seatAssignmentId = generateId();
 
   await c.env.DB.batch([
     c.env.DB.prepare(
       "INSERT INTO people (id, name, color) VALUES (?, ?, ?)"
     ).bind(personId, name, color),
-    c.env.DB.prepare(
-      "INSERT INTO guests (id, person_id, layout_id, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
-    ).bind(seatAssignmentId, personId, layoutId),
+    ...layouts.map((layout) =>
+      c.env.DB.prepare(
+        "INSERT INTO guests (id, person_id, layout_id, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
+      ).bind(generateId(), personId, layout.id)
+    ),
   ]);
 
   return c.json(
@@ -262,16 +282,16 @@ api.put("/guests/:id/move", async (c) => {
 
   if (tableId !== null) {
     const tableRow = await c.env.DB.prepare(
-      "SELECT max_seats FROM tables WHERE id = ?"
-    ).bind(tableId).first<{ max_seats: number }>();
+      "SELECT max_seats FROM tables WHERE id = ? AND layout_id = ?"
+    ).bind(tableId, layoutId).first<{ max_seats: number }>();
 
     if (!tableRow) {
       return c.json({ error: "Table not found" }, 404);
     }
 
     const { results: occupied } = await c.env.DB.prepare(
-      "SELECT g.person_id, g.table_position FROM guests g WHERE g.table_id = ? AND g.person_id != ?"
-    ).bind(tableId, personId).all<{ person_id: string; table_position: number | null }>();
+      "SELECT g.person_id, g.table_position FROM guests g WHERE g.table_id = ? AND g.layout_id = ? AND g.person_id != ?"
+    ).bind(tableId, layoutId, personId).all<{ person_id: string; table_position: number | null }>();
 
     const occupiedPositions = occupied
       .map((r) => r.table_position)
@@ -338,10 +358,13 @@ api.put("/guests/:id/move", async (c) => {
   }
 
   try {
-    await c.env.DB.batch([
-      c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE person_id = ? AND layout_id = ?")
-        .bind(tableId, tablePosition, personId, layoutId),
-    ]);
+    const result = await c.env.DB.prepare(
+      "UPDATE guests SET table_id = ?, table_position = ? WHERE person_id = ? AND layout_id = ?"
+    ).bind(tableId, tablePosition, personId, layoutId).run();
+
+    if (result.meta.changes === 0) {
+      return c.json({ error: "Guest assignment not found" }, 404);
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes("UNIQUE constraint failed")) {
@@ -409,17 +432,26 @@ api.post("/guests/bulk", async (c) => {
 
   const guests: Array<{ id: string; name: string; color: string; table_id: null; table_position: null; arrived: number; shuttle_time: null; shuttle_checked: number }> = [];
 
+  const { results: layouts } = await c.env.DB.prepare(
+    "SELECT id FROM layouts"
+  ).all<{ id: string }>();
+
+  if (!layouts.some((layout) => layout.id === layoutId)) {
+    return c.json({ error: "Layout not found" }, 404);
+  }
+
   const statements = validNames.flatMap((name) => {
     const personId = generateId();
-    const seatAssignmentId = generateId();
     guests.push({ id: personId, name: name.trim(), color, table_id: null, table_position: null, arrived: 0, shuttle_time: null, shuttle_checked: 0 });
     return [
       c.env.DB.prepare(
         "INSERT INTO people (id, name, color) VALUES (?, ?, ?)"
       ).bind(personId, name.trim(), color),
-      c.env.DB.prepare(
-        "INSERT INTO guests (id, person_id, layout_id, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
-      ).bind(seatAssignmentId, personId, layoutId),
+      ...layouts.map((layout) =>
+        c.env.DB.prepare(
+          "INSERT INTO guests (id, person_id, layout_id, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
+        ).bind(generateId(), personId, layout.id)
+      ),
     ];
   });
 
@@ -459,6 +491,10 @@ api.post("/tables", async (c) => {
 
   if (typeof maxSeats !== "number" || !Number.isFinite(maxSeats) || !Number.isInteger(maxSeats) || maxSeats < 1) {
     return c.json({ error: "maxSeats must be a finite integer >= 1" }, 400);
+  }
+
+  if (!(await layoutExists(c.env.DB, layoutId))) {
+    return c.json({ error: "Layout not found" }, 404);
   }
 
   const id = generateId();
@@ -619,8 +655,6 @@ api.delete("/tables/:id", async (c) => {
 api.get("/canvas-layout", async (c) => {
   const layoutId = c.req.query("layout") || "default";
 
-  // Only update canvas fields here. Layout names are managed by /layouts so
-  // saving canvas positions cannot accidentally rename the selected layout.
   const result = await c.env.DB.prepare(
     "SELECT items FROM layouts WHERE id = ?"
   ).bind(layoutId).first<{ items: string }>();
@@ -676,6 +710,8 @@ api.put("/canvas-layout", async (c) => {
     }
   }
 
+  // Only update canvas fields here. Layout names are managed by /layouts so
+  // saving canvas positions cannot accidentally rename the selected layout.
   const result = await c.env.DB.prepare(
     "UPDATE layouts SET items = ?, updated_at = datetime('now') WHERE id = ?"
   )

@@ -31,3 +31,4 @@ ALTER TABLE guests DROP COLUMN shuttle_checked;
 -- Indexes for layout-scoped lookups
 CREATE INDEX IF NOT EXISTS idx_guests_layout_id ON guests(layout_id);
 CREATE INDEX IF NOT EXISTS idx_guests_person_id ON guests(person_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_guests_person_layout ON guests(person_id, layout_id);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check, Bus, Printer } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
 import GuestListPage from "./GuestListPage";
@@ -36,6 +36,7 @@ const App = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [notification, setNotification] = useState<string | null>(null);
+  const fetchRequestIdRef = useRef(0);
   
   // Per-table seat configuration
   const [editingTableId, setEditingTableId] = useState<string | null>(null);
@@ -95,11 +96,16 @@ const App = () => {
   }));
 
   const fetchData = useCallback(async () => {
+    const requestId = fetchRequestIdRef.current + 1;
+    fetchRequestIdRef.current = requestId;
+    const layoutId = currentLayoutId;
+    const layoutQuery = encodeURIComponent(layoutId);
+
     try {
       setLoading(true);
       const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
-        fetch(`/api/guests?layout=${currentLayoutId}`),
-        fetch(`/api/tables?layout=${currentLayoutId}`),
+        fetch(`/api/guests?layout=${layoutQuery}`),
+        fetch(`/api/tables?layout=${layoutQuery}`),
         fetch("/api/color-groups"),
       ]);
 
@@ -110,6 +116,8 @@ const App = () => {
       const guestsData: Guest[] = await guestsRes.json();
       const tablesData: Array<{ id: string; name: string; nickname: string | null; max_seats: number; sort_order: number }> = await tablesRes.json();
       const colorGroupsData: ColorGroup[] = await colorGroupsRes.json();
+
+      if (requestId !== fetchRequestIdRef.current) return;
 
       setGuests(guestsData.filter((g: Guest) => !g.table_id));
       setTables(
@@ -157,9 +165,12 @@ const App = () => {
       setColorGroupNames(namesMap);
       setError(null);
     } catch (err) {
+      if (requestId !== fetchRequestIdRef.current) return;
       setError(err instanceof Error ? err.message : "An error occurred");
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [currentLayoutId]);
 
@@ -169,10 +180,13 @@ const App = () => {
       if (!res.ok) return;
       const data: Layout[] = await res.json();
       setLayouts(data);
+      if (data.length > 0 && !data.some((layout) => layout.id === currentLayoutId)) {
+        setCurrentLayoutId(data[0].id);
+      }
     } catch {
       // non-fatal
     }
-  }, []);
+  }, [currentLayoutId]);
 
   useEffect(() => {
     fetchData();
