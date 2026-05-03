@@ -124,7 +124,7 @@ SELECT lower(
   hex(randomblob(4)) || '-' ||
   hex(randomblob(2)) || '-' ||
   '4' || substr(hex(randomblob(2)), 2) || '-' ||
-  substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)), 2) || '-' ||
+  substr('89ab', (abs(random()) % 4) + 1, 1) || substr(hex(randomblob(2)), 2, 3) || '-' ||
   hex(randomblob(6))
 ), people.id, 'wet-weather', NULL, NULL
 FROM people

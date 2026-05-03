@@ -183,7 +183,9 @@ const App = () => {
       const data: Layout[] = await res.json();
       setLayouts(data);
       // Reset to the first available layout only if the layout selected when
-      // this request started was deleted and the user has not switched since.
+      // this request started was deleted. The selectedLayoutId === layoutId
+      // check is a temporal guard: if the user switched layouts while this
+      // request was pending, keep the user's newer selection.
       setCurrentLayoutId((selectedLayoutId) =>
         data.length > 0 &&
         selectedLayoutId === layoutId &&
