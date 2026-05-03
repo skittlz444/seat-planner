@@ -26,6 +26,7 @@ interface TableInfo {
 
 const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
   const [activeLayoutId, setActiveLayoutId] = useState(layoutId);
+  const fetchRequestIdRef = useRef(0);
   const [allGuests, setAllGuests] = useState<AllGuest[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [colorGroups, setColorGroups] = useState<ColorGroup[]>([]);
@@ -73,7 +74,13 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
     };
   }, []);
 
+  // Sync activeLayoutId if the parent layoutId prop changes while mounted
+  useEffect(() => {
+    setActiveLayoutId(layoutId);
+  }, [layoutId]);
+
   const fetchData = useCallback(async () => {
+    const requestId = ++fetchRequestIdRef.current;
     try {
       setLoading(true);
       const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
@@ -89,6 +96,8 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
       const guestsData: AllGuest[] = await guestsRes.json();
       const tablesData: TableInfo[] = await tablesRes.json();
       const colorGroupsData: ColorGroup[] = await colorGroupsRes.json();
+
+      if (requestId !== fetchRequestIdRef.current) return;
 
       // Map arrived from number to boolean
       const mappedGuests = guestsData.map((g) => ({
@@ -108,10 +117,13 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
       setTables(enrichedTables);
       setColorGroups(colorGroupsData);
     } catch (error) {
+      if (requestId !== fetchRequestIdRef.current) return;
       console.error("Failed to load guest list data", error);
       showNotification("Failed to load guest list data. Please try again.");
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [activeLayoutId]);
 

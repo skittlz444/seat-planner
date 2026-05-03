@@ -93,6 +93,7 @@ interface Props {
 
 const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
   const [activeLayoutId, setActiveLayoutId] = useState(layoutId);
+  const fetchRequestIdRef = useRef(0);
   // Data from API
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
@@ -166,9 +167,15 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutLoadedRef = useRef(false);
 
+  // Sync activeLayoutId if the parent layoutId prop changes while mounted
+  useEffect(() => {
+    setActiveLayoutId(layoutId);
+  }, [layoutId]);
+
   // ── Data fetching ────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
+    const requestId = ++fetchRequestIdRef.current;
     try {
       setLoading(true);
       layoutLoadedRef.current = false;
@@ -187,6 +194,8 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         max_seats: number;
         sort_order: number;
       }> = await tablesRes.json();
+
+      if (requestId !== fetchRequestIdRef.current) return;
 
       setTables(
         tablesData.map((t) => ({
@@ -208,10 +217,13 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
       }
       layoutLoadedRef.current = true;
     } catch {
+      if (requestId !== fetchRequestIdRef.current) return;
       /* silently fail — data just won't show */
       layoutLoadedRef.current = true;
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [activeLayoutId]);
 

@@ -22,6 +22,7 @@ interface TableInfo {
 
 const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
   const [activeLayoutId, setActiveLayoutId] = useState(layoutId);
+  const fetchRequestIdRef = useRef(0);
   const [allGuests, setAllGuests] = useState<ShuttleGuest[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [colorGroups, setColorGroups] = useState<ColorGroup[]>([]);
@@ -54,7 +55,13 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
     };
   }, []);
 
+  // Sync activeLayoutId if the parent layoutId prop changes while mounted
+  useEffect(() => {
+    setActiveLayoutId(layoutId);
+  }, [layoutId]);
+
   const fetchData = useCallback(async () => {
+    const requestId = ++fetchRequestIdRef.current;
     try {
       setLoading(true);
       const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
@@ -71,6 +78,8 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
       const tablesData: TableInfo[] = await tablesRes.json();
       const colorGroupsData: ColorGroup[] = await colorGroupsRes.json();
 
+      if (requestId !== fetchRequestIdRef.current) return;
+
       setAllGuests(
         guestsRaw.map((g) => ({
           ...g,
@@ -81,9 +90,12 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
       setTables(tablesData);
       setColorGroups(colorGroupsData);
     } catch (err) {
+      if (requestId !== fetchRequestIdRef.current) return;
       console.error("Failed to fetch data:", err);
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
   }, [activeLayoutId]);
 
