@@ -88,10 +88,19 @@ api.post("/layouts", async (c) => {
       "SELECT id, person_id, table_id, table_position FROM guests WHERE layout_id = ?"
     ).bind(cloneFrom).all<{ id: string; person_id: string; table_id: string | null; table_position: number | null }>();
 
-    // Remap tableIds in canvas items JSON
-    let clonedItems = sourceLayout.items;
-    for (const [oldId, newId] of tableIdMap) {
-      clonedItems = clonedItems.split(JSON.stringify(oldId)).join(JSON.stringify(newId));
+    // Remap tableIds in canvas items JSON by parsing and updating item references
+    let clonedItems = "[]";
+    try {
+      const canvasItems = JSON.parse(sourceLayout.items) as Array<Record<string, unknown>>;
+      const remapped = canvasItems.map((item) => {
+        if (item.type === "table" && typeof item.tableId === "string" && tableIdMap.has(item.tableId)) {
+          return { ...item, tableId: tableIdMap.get(item.tableId) };
+        }
+        return item;
+      });
+      clonedItems = JSON.stringify(remapped);
+    } catch {
+      clonedItems = "[]";
     }
 
     // Build batch statements
@@ -183,14 +192,9 @@ api.delete("/layouts/:id", async (c) => {
     return c.json({ error: "Cannot delete the only layout" }, 400);
   }
 
-  // Delete seat assignments, tables, then layout
+  // Delete all seat assignments for this layout, then tables, then layout
   await c.env.DB.batch([
-    c.env.DB.prepare(
-      "DELETE FROM guests WHERE table_id IN (SELECT id FROM tables WHERE layout_id = ?)"
-    ).bind(layoutId),
-    c.env.DB.prepare(
-      "DELETE FROM guests WHERE layout_id = ? AND table_id IS NULL"
-    ).bind(layoutId),
+    c.env.DB.prepare("DELETE FROM guests WHERE layout_id = ?").bind(layoutId),
     c.env.DB.prepare("DELETE FROM tables WHERE layout_id = ?").bind(layoutId),
     c.env.DB.prepare("DELETE FROM layouts WHERE id = ?").bind(layoutId),
   ]);
