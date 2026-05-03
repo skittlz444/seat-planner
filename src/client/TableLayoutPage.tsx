@@ -85,10 +85,11 @@ function uid(): string {
 // ── Component ────────────────────────────────────────────────────────────────
 
 interface Props {
+  layoutId: string;
   onBack: () => void;
 }
 
-const TableLayoutPage = ({ onBack }: Props) => {
+const TableLayoutPage = ({ layoutId, onBack }: Props) => {
   // Data from API
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
@@ -168,9 +169,9 @@ const TableLayoutPage = ({ onBack }: Props) => {
     try {
       setLoading(true);
       const [guestsRes, tablesRes, layoutRes] = await Promise.all([
-        fetch("/api/guests"),
-        fetch("/api/tables"),
-        fetch("/api/canvas-layout"),
+        fetch(`/api/guests?layout=${layoutId}`),
+        fetch(`/api/tables?layout=${layoutId}`),
+        fetch(`/api/canvas-layout?layout=${layoutId}`),
       ]);
       if (!guestsRes.ok || !tablesRes.ok) throw new Error("Failed to fetch");
 
@@ -221,7 +222,7 @@ const TableLayoutPage = ({ onBack }: Props) => {
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      fetch("/api/canvas-layout", {
+      fetch(`/api/canvas-layout?layout=${layoutId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(items),

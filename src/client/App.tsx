@@ -3,7 +3,7 @@ import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard
 import TableLayoutPage from "./TableLayoutPage";
 import GuestListPage from "./GuestListPage";
 import ShuttlePage from "./ShuttlePage";
-import type { Guest, Table, ColorGroup } from "../shared/types";
+import type { Guest, Table, ColorGroup, Layout } from "../shared/types";
 
 // Default configuration constants
 const DEFAULT_MAX_GUESTS_PER_TABLE = 16;
@@ -16,6 +16,13 @@ interface GroupColor {
 const App = () => {
   // Page navigation
   const [currentPage, setCurrentPage] = useState<"planner" | "layout" | "guestlist" | "shuttle">("planner");
+
+  // Layout management
+  const [layouts, setLayouts] = useState<Layout[]>([]);
+  const [currentLayoutId, setCurrentLayoutId] = useState("default");
+  const [showNewLayoutModal, setShowNewLayoutModal] = useState(false);
+  const [newLayoutName, setNewLayoutName] = useState("");
+  const [cloneFromLayoutId, setCloneFromLayoutId] = useState<string | null>(null);
 
   const [guests, setGuests] = useState<Guest[]>([]);
   const [tables, setTables] = useState<Table[]>([]);
@@ -91,8 +98,8 @@ const App = () => {
     try {
       setLoading(true);
       const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
-        fetch("/api/guests"),
-        fetch("/api/tables"),
+        fetch(`/api/guests?layout=${currentLayoutId}`),
+        fetch(`/api/tables?layout=${currentLayoutId}`),
         fetch("/api/color-groups"),
       ]);
 
@@ -154,11 +161,26 @@ const App = () => {
     } finally {
       setLoading(false);
     }
+  }, [currentLayoutId]);
+
+  const fetchLayouts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/layouts");
+      if (!res.ok) return;
+      const data: Layout[] = await res.json();
+      setLayouts(data);
+    } catch {
+      // non-fatal
+    }
   }, []);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  useEffect(() => {
+    fetchLayouts();
+  }, [fetchLayouts]);
 
   // Precompute position→guest maps per table for O(1) slot lookups
   const seatMaps = useMemo(() => {
@@ -197,7 +219,7 @@ const App = () => {
       const response = await fetch("/api/guests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newGuestName, color: newGuestColor }),
+        body: JSON.stringify({ name: newGuestName, color: newGuestColor, layoutId: currentLayoutId }),
       });
 
       if (!response.ok) throw new Error("Failed to add guest");
@@ -216,7 +238,7 @@ const App = () => {
       const response = await fetch("/api/tables", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newTableName, maxSeats: DEFAULT_MAX_GUESTS_PER_TABLE }),
+        body: JSON.stringify({ name: newTableName, maxSeats: DEFAULT_MAX_GUESTS_PER_TABLE, layoutId: currentLayoutId }),
       });
 
       if (!response.ok) throw new Error("Failed to add table");
@@ -383,7 +405,7 @@ const App = () => {
       const response = await fetch("/api/guests/bulk", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ names, color: bulkAddColor }),
+        body: JSON.stringify({ names, color: bulkAddColor, layoutId: currentLayoutId }),
       });
 
       if (!response.ok) throw new Error("Failed to bulk add guests");
@@ -472,6 +494,59 @@ const App = () => {
     }
   };
 
+  // Layout management
+
+  const createLayout = async () => {
+    const name = newLayoutName.trim();
+    if (!name) return;
+
+    try {
+      const body: { name: string; cloneFrom?: string } = { name };
+      if (cloneFromLayoutId) body.cloneFrom = cloneFromLayoutId;
+
+      const response = await fetch("/api/layouts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (!response.ok) throw new Error("Failed to create layout");
+
+      const newLayout: Layout = await response.json();
+      setLayouts((prev) => [...prev, newLayout]);
+      setCurrentLayoutId(newLayout.id);
+      setShowNewLayoutModal(false);
+      setNewLayoutName("");
+      setCloneFromLayoutId(null);
+      showNotification(`Layout "${newLayout.name}" created`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create layout");
+    }
+  };
+
+  const deleteLayout = async (layoutId: string) => {
+    const layout = layouts.find((l) => l.id === layoutId);
+    if (!layout) return;
+    if (!window.confirm(`Delete layout "${layout.name}"? This will remove all its tables and seating assignments.`)) return;
+
+    try {
+      const response = await fetch(`/api/layouts/${layoutId}`, { method: "DELETE" });
+      if (!response.ok) {
+        const err = await response.json() as { error: string };
+        throw new Error(err.error || "Failed to delete layout");
+      }
+
+      const remaining = layouts.filter((l) => l.id !== layoutId);
+      setLayouts(remaining);
+      if (currentLayoutId === layoutId && remaining.length > 0) {
+        setCurrentLayoutId(remaining[0].id);
+      }
+      showNotification(`Layout "${layout.name}" deleted`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete layout");
+    }
+  };
+
   const primeDrag = (guestId: string, fromTableId: string | null) => {
     if (editingGuestId === guestId) return; // Don't start drag if editing this guest
     setDraggedGuestId({ guestId, fromTableId });
@@ -545,7 +620,7 @@ const App = () => {
         const response = await fetch(`/api/guests/${guestId}/move`, {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ tableId: toTableId, position: toPosition }),
+          body: JSON.stringify({ tableId: toTableId, position: toPosition, layoutId: currentLayoutId }),
         });
         if (!response.ok) throw new Error("Failed to move guest");
       } catch (err) {
@@ -579,7 +654,7 @@ const App = () => {
       const response = await fetch(`/api/guests/${guestId}/move`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableId: toTableId, position: toPosition ?? undefined }),
+        body: JSON.stringify({ tableId: toTableId, position: toPosition ?? undefined, layoutId: currentLayoutId }),
       });
 
       if (!response.ok) throw new Error("Failed to move guest");
@@ -700,7 +775,7 @@ const App = () => {
       const response = await fetch("/api/tables/reorder", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ tableIds: newTables.map((t) => t.id) }),
+        body: JSON.stringify({ tableIds: newTables.map((t) => t.id), layoutId: currentLayoutId }),
       });
       if (!response.ok) throw new Error("Failed to reorder tables");
     } catch (err) {
@@ -729,17 +804,17 @@ const App = () => {
 
   // Render layout page if selected
   if (currentPage === "layout") {
-    return <TableLayoutPage onBack={() => setCurrentPage("planner")} />;
+    return <TableLayoutPage layoutId={currentLayoutId} onBack={() => setCurrentPage("planner")} />;
   }
 
   // Render guest list page if selected
   if (currentPage === "guestlist") {
-    return <GuestListPage onBack={() => setCurrentPage("planner")} />;
+    return <GuestListPage layoutId={currentLayoutId} onBack={() => setCurrentPage("planner")} />;
   }
 
   // Render shuttle page if selected
   if (currentPage === "shuttle") {
-    return <ShuttlePage onBack={() => setCurrentPage("planner")} />;
+    return <ShuttlePage layoutId={currentLayoutId} onBack={() => setCurrentPage("planner")} />;
   }
 
   if (loading) {
@@ -774,6 +849,57 @@ const App = () => {
       )}
 
 
+
+      {/* New Layout Modal */}
+      {showNewLayoutModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-800">New Layout</h3>
+              <button
+                onClick={() => { setShowNewLayoutModal(false); setNewLayoutName(""); setCloneFromLayoutId(null); }}
+                className="p-2 hover:bg-slate-100 rounded-lg"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Layout Name</label>
+                <input
+                  type="text"
+                  value={newLayoutName}
+                  onChange={(e) => setNewLayoutName(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") createLayout(); }}
+                  placeholder="e.g. Wet Weather"
+                  autoFocus
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">Clone from (optional)</label>
+                <select
+                  value={cloneFromLayoutId ?? ""}
+                  onChange={(e) => setCloneFromLayoutId(e.target.value || null)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-sm bg-white"
+                >
+                  <option value="">Blank layout</option>
+                  {layouts.map((l) => (
+                    <option key={l.id} value={l.id}>{l.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                onClick={createLayout}
+                disabled={!newLayoutName.trim()}
+                className="w-full bg-indigo-600 text-white py-2 rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {cloneFromLayoutId ? "Clone Layout" : "Create Layout"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Bulk Add Modal */}
       {showBulkAddModal && (
@@ -843,6 +969,43 @@ const App = () => {
             Total Guests • {guests.length} Unassigned
           </p>
         </div>
+
+        {/* Layout switcher */}
+        <div className="relative">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+            {layouts.map((layout) => (
+              <div key={layout.id} className="flex items-center">
+                <button
+                  onClick={() => { setCurrentLayoutId(layout.id); }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold transition-all ${
+                    currentLayoutId === layout.id
+                      ? "bg-white text-slate-900 shadow-sm"
+                      : "text-slate-500 hover:text-slate-700"
+                  }`}
+                >
+                  {layout.name}
+                </button>
+                {layouts.length > 1 && currentLayoutId === layout.id && (
+                  <button
+                    onClick={() => deleteLayout(layout.id)}
+                    className="p-1 text-slate-300 hover:text-red-400 rounded transition-all"
+                    title="Delete this layout"
+                  >
+                    <X size={12} />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              onClick={() => { setShowNewLayoutModal(true); setCloneFromLayoutId(currentLayoutId); setNewLayoutName(""); }}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-sm font-semibold text-indigo-600 hover:bg-indigo-50 transition-all"
+              title="New layout"
+            >
+              <Plus size={14} /> New
+            </button>
+          </div>
+        </div>
+
         <div className="flex gap-2">
           <button
             onClick={() => window.print()}

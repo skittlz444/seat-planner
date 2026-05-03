@@ -5,15 +5,16 @@ interface Env {
   ASSETS: Fetcher;
 }
 
-interface Guest {
-  id: string;
+// Returned from GET /guests — person data joined with layout-specific seat assignment
+interface GuestRow {
+  id: string; // = person_id (the stable identifier for a person)
   name: string;
   color: string;
-  table_id: string | null;
-  table_position: number | null;
   arrived: number;
   shuttle_time: string | null;
   shuttle_checked: number;
+  table_id: string | null;
+  table_position: number | null;
 }
 
 interface Table {
@@ -39,28 +40,202 @@ function generateId(): string {
 // API Routes
 const api = new Hono<{ Bindings: Env }>();
 
-// Get all guests
-api.get("/guests", async (c) => {
+// ── Layouts ──────────────────────────────────────────────────────────────────
+
+// List all layouts
+api.get("/layouts", async (c) => {
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, color, table_id, table_position, arrived, shuttle_time, shuttle_checked FROM guests ORDER BY CASE WHEN table_id IS NULL THEN 0 ELSE 1 END, table_id, table_position, name"
-  ).all<Guest>();
+    "SELECT id, name FROM layouts ORDER BY rowid"
+  ).all<{ id: string; name: string }>();
   return c.json(results);
 });
 
-// Create a new guest
-api.post("/guests", async (c) => {
-  const { name, color } = await c.req.json<{ name: string; color: string }>();
-  const id = generateId();
+// Create a new layout (optionally clone an existing one)
+api.post("/layouts", async (c) => {
+  const body = await c.req.json<{ name: string; cloneFrom?: string }>();
+  const { name, cloneFrom } = body;
 
-  await c.env.DB.prepare(
-    "INSERT INTO guests (id, name, color, table_id) VALUES (?, ?, ?, NULL)"
-  )
-    .bind(id, name, color)
-    .run();
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return c.json({ error: "name must be a non-empty string" }, 400);
+  }
+
+  const newLayoutId = generateId();
+  const trimmedName = name.trim();
+
+  if (cloneFrom) {
+    // Verify source layout exists
+    const sourceLayout = await c.env.DB.prepare(
+      "SELECT id, items FROM layouts WHERE id = ?"
+    ).bind(cloneFrom).first<{ id: string; items: string }>();
+
+    if (!sourceLayout) {
+      return c.json({ error: "Source layout not found" }, 404);
+    }
+
+    // Fetch all tables in source layout
+    const { results: sourceTables } = await c.env.DB.prepare(
+      "SELECT id, name, nickname, max_seats, sort_order FROM tables WHERE layout_id = ?"
+    ).bind(cloneFrom).all<Table>();
+
+    // Build old→new table ID mapping
+    const tableIdMap = new Map<string, string>();
+    for (const t of sourceTables) {
+      tableIdMap.set(t.id, generateId());
+    }
+
+    // Fetch seat assignments in source layout
+    const { results: seatAssignments } = await c.env.DB.prepare(
+      "SELECT id, person_id, table_id, table_position FROM guests WHERE layout_id = ?"
+    ).bind(cloneFrom).all<{ id: string; person_id: string; table_id: string | null; table_position: number | null }>();
+
+    // Remap tableIds in canvas items JSON
+    let clonedItems = sourceLayout.items;
+    for (const [oldId, newId] of tableIdMap) {
+      clonedItems = clonedItems.split(JSON.stringify(oldId)).join(JSON.stringify(newId));
+    }
+
+    // Build batch statements
+    const statements: D1PreparedStatement[] = [];
+
+    // 1. Create new layout
+    statements.push(
+      c.env.DB.prepare(
+        "INSERT INTO layouts (id, name, items, updated_at) VALUES (?, ?, ?, datetime('now'))"
+      ).bind(newLayoutId, trimmedName, clonedItems)
+    );
+
+    // 2. Clone tables
+    for (const t of sourceTables) {
+      const newTableId = tableIdMap.get(t.id)!;
+      statements.push(
+        c.env.DB.prepare(
+          "INSERT INTO tables (id, name, nickname, max_seats, sort_order, layout_id) VALUES (?, ?, ?, ?, ?, ?)"
+        ).bind(newTableId, t.name, t.nickname, t.max_seats, t.sort_order, newLayoutId)
+      );
+    }
+
+    // 3. Clone seat assignments (same person, new table IDs)
+    for (const sa of seatAssignments) {
+      const newSaId = generateId();
+      const newTableId = sa.table_id ? (tableIdMap.get(sa.table_id) ?? null) : null;
+      statements.push(
+        c.env.DB.prepare(
+          "INSERT INTO guests (id, person_id, layout_id, table_id, table_position) VALUES (?, ?, ?, ?, ?)"
+        ).bind(newSaId, sa.person_id, newLayoutId, newTableId, sa.table_position)
+      );
+    }
+
+    await c.env.DB.batch(statements);
+  } else {
+    // Create empty layout
+    await c.env.DB.prepare(
+      "INSERT INTO layouts (id, name, items, updated_at) VALUES (?, ?, '[]', datetime('now'))"
+    ).bind(newLayoutId, trimmedName).run();
+
+    // Seed the new layout with a seat assignment for every existing person (unassigned)
+    const { results: people } = await c.env.DB.prepare(
+      "SELECT id FROM people"
+    ).all<{ id: string }>();
+
+    if (people.length > 0) {
+      const statements = people.map((p) =>
+        c.env.DB.prepare(
+          "INSERT INTO guests (id, person_id, layout_id, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
+        ).bind(generateId(), p.id, newLayoutId)
+      );
+      await c.env.DB.batch(statements);
+    }
+  }
+
+  return c.json({ id: newLayoutId, name: trimmedName }, 201);
+});
+
+// Rename a layout
+api.put("/layouts/:id", async (c) => {
+  const layoutId = c.req.param("id");
+  const { name } = await c.req.json<{ name: string }>();
+
+  if (!name || typeof name !== "string" || !name.trim()) {
+    return c.json({ error: "name must be a non-empty string" }, 400);
+  }
+
+  const result = await c.env.DB.prepare(
+    "UPDATE layouts SET name = ? WHERE id = ?"
+  ).bind(name.trim(), layoutId).run();
+
+  if (result.meta.changes === 0) {
+    return c.json({ error: "Layout not found" }, 404);
+  }
+
+  return c.json({ success: true });
+});
+
+// Delete a layout (forbidden when it is the only layout)
+api.delete("/layouts/:id", async (c) => {
+  const layoutId = c.req.param("id");
+
+  // Prevent deleting the only layout
+  const { results: all } = await c.env.DB.prepare(
+    "SELECT id FROM layouts"
+  ).all<{ id: string }>();
+
+  if (all.length <= 1) {
+    return c.json({ error: "Cannot delete the only layout" }, 400);
+  }
+
+  // Delete seat assignments, tables, then layout
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "DELETE FROM guests WHERE table_id IN (SELECT id FROM tables WHERE layout_id = ?)"
+    ).bind(layoutId),
+    c.env.DB.prepare(
+      "DELETE FROM guests WHERE layout_id = ? AND table_id IS NULL"
+    ).bind(layoutId),
+    c.env.DB.prepare("DELETE FROM tables WHERE layout_id = ?").bind(layoutId),
+    c.env.DB.prepare("DELETE FROM layouts WHERE id = ?").bind(layoutId),
+  ]);
+
+  return c.json({ success: true });
+});
+
+// ── Guests (seat assignments joined with person data) ─────────────────────────
+
+// Get all guests for a layout — returns person_id as `id`
+api.get("/guests", async (c) => {
+  const layoutId = c.req.query("layout") || "default";
+
+  const { results } = await c.env.DB.prepare(
+    `SELECT p.id, p.name, p.color, p.arrived, p.shuttle_time, p.shuttle_checked,
+            g.table_id, g.table_position
+     FROM guests g
+     JOIN people p ON g.person_id = p.id
+     WHERE g.layout_id = ?
+     ORDER BY CASE WHEN g.table_id IS NULL THEN 0 ELSE 1 END, g.table_id, g.table_position, p.name`
+  ).bind(layoutId).all<GuestRow>();
+
+  return c.json(results);
+});
+
+// Create a new guest (person + seat assignment for given layout)
+api.post("/guests", async (c) => {
+  const { name, color, layoutId: rawLayoutId } = await c.req.json<{ name: string; color: string; layoutId?: string }>();
+  const layoutId = rawLayoutId || "default";
+
+  const personId = generateId();
+  const seatAssignmentId = generateId();
+
+  await c.env.DB.batch([
+    c.env.DB.prepare(
+      "INSERT INTO people (id, name, color) VALUES (?, ?, ?)"
+    ).bind(personId, name, color),
+    c.env.DB.prepare(
+      "INSERT INTO guests (id, person_id, layout_id, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
+    ).bind(seatAssignmentId, personId, layoutId),
+  ]);
 
   return c.json(
     {
-      id,
+      id: personId,
       name,
       color,
       table_id: null,
@@ -73,15 +248,15 @@ api.post("/guests", async (c) => {
   );
 });
 
-// Move a guest to a table (or unassign)
+// Move a guest to a table (or unassign) — :id is the person_id
 api.put("/guests/:id/move", async (c) => {
-  const guestId = c.req.param("id");
-  const { tableId, position } = await c.req.json<{ tableId: string | null; position?: number }>();
+  const personId = c.req.param("id");
+  const { tableId, position, layoutId: rawLayoutId } = await c.req.json<{ tableId: string | null; position?: number; layoutId?: string }>();
+  const layoutId = rawLayoutId || "default";
 
   let tablePosition: number | null = null;
-  
+
   if (tableId !== null) {
-    // Get the table to know max_seats
     const tableRow = await c.env.DB.prepare(
       "SELECT max_seats FROM tables WHERE id = ?"
     ).bind(tableId).first<{ max_seats: number }>();
@@ -90,40 +265,33 @@ api.put("/guests/:id/move", async (c) => {
       return c.json({ error: "Table not found" }, 404);
     }
 
-    // Get all occupied positions for this table (excluding the guest being moved)
     const { results: occupied } = await c.env.DB.prepare(
-      "SELECT id, table_position FROM guests WHERE table_id = ? AND id != ?"
-    ).bind(tableId, guestId).all<{ id: string; table_position: number | null }>();
+      "SELECT g.person_id, g.table_position FROM guests g WHERE g.table_id = ? AND g.person_id != ?"
+    ).bind(tableId, personId).all<{ person_id: string; table_position: number | null }>();
 
     const occupiedPositions = occupied
       .map((r) => r.table_position)
       .filter((p): p is number => p !== null);
     const occupiedSet = new Set(occupiedPositions);
 
-    // Determine the effective slot count — accounts for max_seats, guest count,
-    // and the highest existing position (handles sparse positions from past
-    // capacity reductions).
-    const guestCount = occupied.length + 1; // +1 for the guest being moved
+    const guestCount = occupied.length + 1;
     const maxOccupiedPosition = occupiedPositions.reduce((max, pos) => Math.max(max, pos), -1);
     const slotCount = Math.max(tableRow.max_seats, guestCount, maxOccupiedPosition + 1);
 
     if (position !== undefined && position !== null) {
-      // Specific seat requested – validate
       if (!Number.isInteger(position) || position < 0 || position >= slotCount) {
         return c.json({ error: "Position out of range" }, 400);
       }
 
       if (occupiedSet.has(position)) {
-        // Target seat is occupied — only allow swap for within-table moves
         const currentGuest = await c.env.DB.prepare(
-          "SELECT table_id, table_position FROM guests WHERE id = ?"
-        ).bind(guestId).first<{ table_id: string | null; table_position: number | null }>();
+          "SELECT table_id, table_position FROM guests WHERE person_id = ? AND layout_id = ?"
+        ).bind(personId, layoutId).first<{ table_id: string | null; table_position: number | null }>();
 
         if (!currentGuest || currentGuest.table_id !== tableId) {
           return c.json({ error: "Seat is already occupied" }, 409);
         }
 
-        // Find the guest sitting in the target seat (from our existing query)
         const targetGuest = occupied.find((r) => r.table_position === position);
         if (!targetGuest) {
           return c.json({ error: "Seat is already occupied" }, 409);
@@ -131,16 +299,14 @@ api.put("/guests/:id/move", async (c) => {
 
         const oldPosition = currentGuest.table_position;
 
-        // Atomic swap via batch: move target to temp position (-1), then
-        // place both guests in their final positions
         try {
           await c.env.DB.batch([
-            c.env.DB.prepare("UPDATE guests SET table_position = -1 WHERE id = ?")
-              .bind(targetGuest.id),
-            c.env.DB.prepare("UPDATE guests SET table_position = ? WHERE id = ?")
-              .bind(position, guestId),
-            c.env.DB.prepare("UPDATE guests SET table_position = ? WHERE id = ?")
-              .bind(oldPosition, targetGuest.id),
+            c.env.DB.prepare("UPDATE guests SET table_position = -1 WHERE person_id = ? AND layout_id = ?")
+              .bind(targetGuest.person_id, layoutId),
+            c.env.DB.prepare("UPDATE guests SET table_position = ? WHERE person_id = ? AND layout_id = ?")
+              .bind(position, personId, layoutId),
+            c.env.DB.prepare("UPDATE guests SET table_position = ? WHERE person_id = ? AND layout_id = ?")
+              .bind(oldPosition, targetGuest.person_id, layoutId),
           ]);
         } catch (err: unknown) {
           const message = err instanceof Error ? err.message : String(err);
@@ -155,7 +321,6 @@ api.put("/guests/:id/move", async (c) => {
 
       tablePosition = position;
     } else {
-      // Find the first empty seat (only within max_seats for new assignments)
       for (let i = 0; i < tableRow.max_seats; i++) {
         if (!occupiedSet.has(i)) {
           tablePosition = i;
@@ -168,13 +333,10 @@ api.put("/guests/:id/move", async (c) => {
     }
   }
 
-  // Use batch to run inside a transaction — the UNIQUE index on
-  // (table_id, table_position) enforces that no two guests can
-  // occupy the same seat even under concurrent requests.
   try {
     await c.env.DB.batch([
-      c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE id = ?")
-        .bind(tableId, tablePosition, guestId),
+      c.env.DB.prepare("UPDATE guests SET table_id = ?, table_position = ? WHERE person_id = ? AND layout_id = ?")
+        .bind(tableId, tablePosition, personId, layoutId),
     ]);
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -187,9 +349,9 @@ api.put("/guests/:id/move", async (c) => {
   return c.json({ success: true, position: tablePosition });
 });
 
-// Update a guest's name and/or color
+// Update a guest's name and/or color — :id is the person_id
 api.put("/guests/:id", async (c) => {
-  const guestId = c.req.param("id");
+  const personId = c.req.param("id");
   const { name, color } = await c.req.json<{ name?: string; color?: string }>();
 
   if (name !== undefined && (typeof name !== "string" || !name.trim())) {
@@ -205,16 +367,16 @@ api.put("/guests/:id", async (c) => {
   }
 
   if (name !== undefined && color !== undefined) {
-    await c.env.DB.prepare("UPDATE guests SET name = ?, color = ? WHERE id = ?")
-      .bind(name.trim(), color, guestId)
+    await c.env.DB.prepare("UPDATE people SET name = ?, color = ? WHERE id = ?")
+      .bind(name.trim(), color, personId)
       .run();
   } else if (name !== undefined) {
-    await c.env.DB.prepare("UPDATE guests SET name = ? WHERE id = ?")
-      .bind(name.trim(), guestId)
+    await c.env.DB.prepare("UPDATE people SET name = ? WHERE id = ?")
+      .bind(name.trim(), personId)
       .run();
   } else if (color !== undefined) {
-    await c.env.DB.prepare("UPDATE guests SET color = ? WHERE id = ?")
-      .bind(color, guestId)
+    await c.env.DB.prepare("UPDATE people SET color = ? WHERE id = ?")
+      .bind(color, personId)
       .run();
   }
 
@@ -223,31 +385,38 @@ api.put("/guests/:id", async (c) => {
 
 // Bulk create guests
 api.post("/guests/bulk", async (c) => {
-  const body = await c.req.json<{ names: string[]; color: string }>();
-  
+  const body = await c.req.json<{ names: string[]; color: string; layoutId?: string }>();
+
   if (!body.names || !Array.isArray(body.names)) {
     return c.json({ error: "Names must be an array" }, 400);
   }
-  
+
   if (!body.color || typeof body.color !== "string") {
     return c.json({ error: "Color is required" }, 400);
   }
 
-  const { names, color } = body;
-  const guests: Guest[] = [];
+  const { names, color, layoutId: rawLayoutId } = body;
+  const layoutId = rawLayoutId || "default";
   const validNames = names.filter((name) => name && name.trim());
 
   if (validNames.length === 0) {
     return c.json({ error: "At least one valid name is required" }, 400);
   }
 
-  // Use batch for better performance
-  const statements = validNames.map((name) => {
-    const id = generateId();
-    guests.push({ id, name: name.trim(), color, table_id: null, table_position: null, arrived: 0, shuttle_time: null, shuttle_checked: 0 });
-    return c.env.DB.prepare(
-      "INSERT INTO guests (id, name, color, table_id, table_position, arrived, shuttle_time, shuttle_checked) VALUES (?, ?, ?, NULL, NULL, 0, NULL, 0)"
-    ).bind(id, name.trim(), color);
+  const guests: Array<{ id: string; name: string; color: string; table_id: null; table_position: null; arrived: number; shuttle_time: null; shuttle_checked: number }> = [];
+
+  const statements = validNames.flatMap((name) => {
+    const personId = generateId();
+    const seatAssignmentId = generateId();
+    guests.push({ id: personId, name: name.trim(), color, table_id: null, table_position: null, arrived: 0, shuttle_time: null, shuttle_checked: 0 });
+    return [
+      c.env.DB.prepare(
+        "INSERT INTO people (id, name, color) VALUES (?, ?, ?)"
+      ).bind(personId, name.trim(), color),
+      c.env.DB.prepare(
+        "INSERT INTO guests (id, person_id, layout_id, table_id, table_position) VALUES (?, ?, ?, NULL, NULL)"
+      ).bind(seatAssignmentId, personId, layoutId),
+    ];
   });
 
   await c.env.DB.batch(statements);
@@ -255,26 +424,34 @@ api.post("/guests/bulk", async (c) => {
   return c.json(guests, 201);
 });
 
-// Delete a guest
+// Delete a guest — :id is person_id; removes the person and all their seat assignments
 api.delete("/guests/:id", async (c) => {
-  const guestId = c.req.param("id");
+  const personId = c.req.param("id");
 
-  await c.env.DB.prepare("DELETE FROM guests WHERE id = ?").bind(guestId).run();
+  await c.env.DB.batch([
+    c.env.DB.prepare("DELETE FROM guests WHERE person_id = ?").bind(personId),
+    c.env.DB.prepare("DELETE FROM people WHERE id = ?").bind(personId),
+  ]);
 
   return c.json({ success: true });
 });
 
-// Get all tables
+// ── Tables ────────────────────────────────────────────────────────────────────
+
+// Get all tables for a layout
 api.get("/tables", async (c) => {
+  const layoutId = c.req.query("layout") || "default";
+
   const { results } = await c.env.DB.prepare(
-    "SELECT id, name, nickname, max_seats, sort_order FROM tables ORDER BY sort_order, id"
-  ).all<Table>();
+    "SELECT id, name, nickname, max_seats, sort_order FROM tables WHERE layout_id = ? ORDER BY sort_order, id"
+  ).bind(layoutId).all<Table>();
   return c.json(results);
 });
 
 // Create a new table
 api.post("/tables", async (c) => {
-  const { name, maxSeats = 16 } = await c.req.json<{ name: string; maxSeats?: number }>();
+  const { name, maxSeats = 16, layoutId: rawLayoutId } = await c.req.json<{ name: string; maxSeats?: number; layoutId?: string }>();
+  const layoutId = rawLayoutId || "default";
 
   if (typeof maxSeats !== "number" || !Number.isFinite(maxSeats) || !Number.isInteger(maxSeats) || maxSeats < 1) {
     return c.json({ error: "maxSeats must be a finite integer >= 1" }, 400);
@@ -282,45 +459,43 @@ api.post("/tables", async (c) => {
 
   const id = generateId();
 
-  // Get the max sort_order to place new table at end
   const { results: maxResult } = await c.env.DB.prepare(
-    "SELECT MAX(sort_order) as max_order FROM tables"
-  ).all<{ max_order: number | null }>();
+    "SELECT MAX(sort_order) as max_order FROM tables WHERE layout_id = ?"
+  ).bind(layoutId).all<{ max_order: number | null }>();
   const sortOrder = (maxResult[0]?.max_order ?? -1) + 1;
 
-  await c.env.DB.prepare("INSERT INTO tables (id, name, nickname, max_seats, sort_order) VALUES (?, ?, NULL, ?, ?)")
-    .bind(id, name, maxSeats, sortOrder)
+  await c.env.DB.prepare("INSERT INTO tables (id, name, nickname, max_seats, sort_order, layout_id) VALUES (?, ?, NULL, ?, ?, ?)")
+    .bind(id, name, maxSeats, sortOrder, layoutId)
     .run();
 
   return c.json({ id, name, nickname: null, max_seats: maxSeats, sort_order: sortOrder }, 201);
 });
 
-// Reorder tables
+// Reorder tables within a layout
 api.put("/tables/reorder", async (c) => {
-  const { tableIds } = await c.req.json<{ tableIds: string[] }>();
+  const { tableIds, layoutId: rawLayoutId } = await c.req.json<{ tableIds: string[]; layoutId?: string }>();
+  const layoutId = rawLayoutId || "default";
 
   if (!tableIds || !Array.isArray(tableIds) || tableIds.length === 0) {
     return c.json({ error: "tableIds must be a non-empty array" }, 400);
   }
 
-  // Reject duplicate table IDs
   if (new Set(tableIds).size !== tableIds.length) {
     return c.json({ error: "tableIds must not contain duplicates" }, 400);
   }
 
-  // Verify tableIds is a complete permutation of all tables
   const { results: allTables } = await c.env.DB.prepare(
-    "SELECT id FROM tables"
-  ).all<{ id: string }>();
+    "SELECT id FROM tables WHERE layout_id = ?"
+  ).bind(layoutId).all<{ id: string }>();
 
   if (allTables.length !== tableIds.length) {
-    return c.json({ error: "tableIds must include all tables" }, 400);
+    return c.json({ error: "tableIds must include all tables in this layout" }, 400);
   }
 
   const allTableIdSet = new Set(allTables.map((t) => t.id));
   for (const id of tableIds) {
     if (!allTableIdSet.has(id)) {
-      return c.json({ error: "Some table IDs do not exist" }, 400);
+      return c.json({ error: "Some table IDs do not exist in this layout" }, 400);
     }
   }
 
@@ -382,7 +557,7 @@ api.put("/tables/:id", async (c) => {
   return c.json({ success: true });
 });
 
-// Reorder guests within a table
+// Reorder guests within a table — guestIds are person_ids
 api.put("/tables/:id/reorder", async (c) => {
   const tableId = c.req.param("id");
   const { guestIds } = await c.req.json<{ guestIds: string[] }>();
@@ -391,31 +566,29 @@ api.put("/tables/:id/reorder", async (c) => {
     return c.json({ error: "guestIds must be a non-empty array" }, 400);
   }
 
-  // Reject duplicate guest IDs
   if (new Set(guestIds).size !== guestIds.length) {
     return c.json({ error: "guestIds must not contain duplicates" }, 400);
   }
 
-  // Verify guestIds is a complete permutation of all guests at this table
   const { results: tableGuests } = await c.env.DB.prepare(
-    "SELECT id FROM guests WHERE table_id = ?"
-  ).bind(tableId).all<{ id: string }>();
+    "SELECT person_id FROM guests WHERE table_id = ?"
+  ).bind(tableId).all<{ person_id: string }>();
 
   if (tableGuests.length !== guestIds.length) {
     return c.json({ error: "guestIds must include all guests assigned to this table" }, 400);
   }
 
-  const tableGuestIdSet = new Set(tableGuests.map((g) => g.id));
+  const tableGuestPersonIdSet = new Set(tableGuests.map((g) => g.person_id));
   for (const id of guestIds) {
-    if (!tableGuestIdSet.has(id)) {
+    if (!tableGuestPersonIdSet.has(id)) {
       return c.json({ error: "Some guest IDs do not belong to this table" }, 400);
     }
   }
 
-  const statements = guestIds.map((guestId, index) =>
+  const statements = guestIds.map((personId, index) =>
     c.env.DB.prepare(
-      "UPDATE guests SET table_position = ? WHERE id = ? AND table_id = ?"
-    ).bind(index, guestId, tableId)
+      "UPDATE guests SET table_position = ? WHERE person_id = ? AND table_id = ?"
+    ).bind(index, personId, tableId)
   );
 
   await c.env.DB.batch(statements);
@@ -423,26 +596,28 @@ api.put("/tables/:id/reorder", async (c) => {
   return c.json({ success: true });
 });
 
-// Delete a table (unassigns all guests)
+// Delete a table (unassigns all seat assignments for this table)
 api.delete("/tables/:id", async (c) => {
   const tableId = c.req.param("id");
 
-  // First, unassign all guests from this table and reset their positions
   await c.env.DB.prepare("UPDATE guests SET table_id = NULL, table_position = NULL WHERE table_id = ?")
     .bind(tableId)
     .run();
 
-  // Then delete the table
   await c.env.DB.prepare("DELETE FROM tables WHERE id = ?").bind(tableId).run();
 
   return c.json({ success: true });
 });
 
-// Get canvas layout
+// ── Canvas layout ─────────────────────────────────────────────────────────────
+
+// Get canvas layout for a layout
 api.get("/canvas-layout", async (c) => {
+  const layoutId = c.req.query("layout") || "default";
+
   const result = await c.env.DB.prepare(
-    "SELECT items FROM canvas_layouts WHERE id = 'default'"
-  ).first<{ items: string }>();
+    "SELECT items FROM layouts WHERE id = ?"
+  ).bind(layoutId).first<{ items: string }>();
 
   if (!result) {
     return c.json([]);
@@ -457,6 +632,7 @@ api.get("/canvas-layout", async (c) => {
 
 // Save canvas layout
 api.put("/canvas-layout", async (c) => {
+  const layoutId = c.req.query("layout") || "default";
   const items = await c.req.json();
 
   if (!Array.isArray(items)) {
@@ -495,17 +671,19 @@ api.put("/canvas-layout", async (c) => {
   }
 
   await c.env.DB.prepare(
-    "INSERT OR REPLACE INTO canvas_layouts (id, items, updated_at) VALUES ('default', ?, datetime('now'))"
+    "INSERT OR REPLACE INTO layouts (id, items, updated_at) VALUES (?, ?, datetime('now'))"
   )
-    .bind(JSON.stringify(items))
+    .bind(layoutId, JSON.stringify(items))
     .run();
 
   return c.json({ success: true });
 });
 
-// Toggle guest arrival status
+// ── Arrival tracking ──────────────────────────────────────────────────────────
+
+// Toggle guest arrival status — :id is person_id
 api.put("/guests/:id/arrive", async (c) => {
-  const guestId = c.req.param("id");
+  const personId = c.req.param("id");
   let body: unknown;
   try {
     body = await c.req.json();
@@ -524,9 +702,9 @@ api.put("/guests/:id/arrive", async (c) => {
   const arrived = (body as { arrived: boolean }).arrived;
 
   const result = await c.env.DB.prepare(
-    "UPDATE guests SET arrived = ? WHERE id = ?"
+    "UPDATE people SET arrived = ? WHERE id = ?"
   )
-    .bind(arrived ? 1 : 0, guestId)
+    .bind(arrived ? 1 : 0, personId)
     .run();
 
   if (result.meta.changes === 0) {
@@ -536,9 +714,39 @@ api.put("/guests/:id/arrive", async (c) => {
   return c.json({ success: true });
 });
 
-// Update guest shuttle time
+// Reset all arrivals
+api.post("/guests/reset-arrivals", async (c) => {
+  const { results: arrivedPeople } = await c.env.DB.prepare(
+    "SELECT id FROM people WHERE arrived = 1"
+  ).all<{ id: string }>();
+
+  await c.env.DB.prepare("UPDATE people SET arrived = 0").run();
+
+  return c.json({ undoGuestIds: arrivedPeople.map((p) => p.id) });
+});
+
+// Undo reset arrivals
+api.post("/guests/undo-reset-arrivals", async (c) => {
+  const { guestIds } = await c.req.json<{ guestIds: string[] }>();
+
+  if (!guestIds || !Array.isArray(guestIds) || guestIds.length === 0) {
+    return c.json({ error: "guestIds must be a non-empty array" }, 400);
+  }
+
+  const statements = guestIds.map((id) =>
+    c.env.DB.prepare("UPDATE people SET arrived = 1 WHERE id = ?").bind(id)
+  );
+
+  await c.env.DB.batch(statements);
+
+  return c.json({ success: true });
+});
+
+// ── Shuttle tracking ──────────────────────────────────────────────────────────
+
+// Update guest shuttle time — :id is person_id
 api.put("/guests/:id/shuttle", async (c) => {
-  const guestId = c.req.param("id");
+  const personId = c.req.param("id");
   let body: unknown;
   try {
     body = await c.req.json();
@@ -560,13 +768,11 @@ api.put("/guests/:id/shuttle", async (c) => {
     return c.json({ error: "shuttle_time must be a non-empty string or null" }, 400);
   }
 
-  // When removing shuttle time, also clear shuttle_checked so the guest
-  // doesn't remain invisibly checked in the "No Shuttle Assigned" section.
   const sql = shuttleTime === null
-    ? "UPDATE guests SET shuttle_time = NULL, shuttle_checked = 0 WHERE id = ?"
-    : "UPDATE guests SET shuttle_time = ? WHERE id = ?";
+    ? "UPDATE people SET shuttle_time = NULL, shuttle_checked = 0 WHERE id = ?"
+    : "UPDATE people SET shuttle_time = ? WHERE id = ?";
   const result = await c.env.DB.prepare(sql)
-    .bind(...(shuttleTime === null ? [guestId] : [shuttleTime.trim(), guestId]))
+    .bind(...(shuttleTime === null ? [personId] : [shuttleTime.trim(), personId]))
     .run();
 
   if (result.meta.changes === 0) {
@@ -576,38 +782,9 @@ api.put("/guests/:id/shuttle", async (c) => {
   return c.json({ success: true });
 });
 
-// Reset all arrivals
-api.post("/guests/reset-arrivals", async (c) => {
-  // Return current arrival states before resetting (for undo)
-  const { results: arrivedGuests } = await c.env.DB.prepare(
-    "SELECT id FROM guests WHERE arrived = 1"
-  ).all<{ id: string }>();
-
-  await c.env.DB.prepare("UPDATE guests SET arrived = 0").run();
-
-  return c.json({ undoGuestIds: arrivedGuests.map((g) => g.id) });
-});
-
-// Undo reset arrivals (restore specific guests as arrived)
-api.post("/guests/undo-reset-arrivals", async (c) => {
-  const { guestIds } = await c.req.json<{ guestIds: string[] }>();
-
-  if (!guestIds || !Array.isArray(guestIds) || guestIds.length === 0) {
-    return c.json({ error: "guestIds must be a non-empty array" }, 400);
-  }
-
-  const statements = guestIds.map((id) =>
-    c.env.DB.prepare("UPDATE guests SET arrived = 1 WHERE id = ?").bind(id)
-  );
-
-  await c.env.DB.batch(statements);
-
-  return c.json({ success: true });
-});
-
-// Toggle guest shuttle check status
+// Toggle guest shuttle check status — :id is person_id
 api.put("/guests/:id/shuttle-check", async (c) => {
-  const guestId = c.req.param("id");
+  const personId = c.req.param("id");
   let body: unknown;
   try {
     body = await c.req.json();
@@ -626,9 +803,9 @@ api.put("/guests/:id/shuttle-check", async (c) => {
   const shuttleChecked = (body as { shuttle_checked: boolean }).shuttle_checked;
 
   const result = await c.env.DB.prepare(
-    "UPDATE guests SET shuttle_checked = ? WHERE id = ?"
+    "UPDATE people SET shuttle_checked = ? WHERE id = ?"
   )
-    .bind(shuttleChecked ? 1 : 0, guestId)
+    .bind(shuttleChecked ? 1 : 0, personId)
     .run();
 
   if (result.meta.changes === 0) {
@@ -640,17 +817,16 @@ api.put("/guests/:id/shuttle-check", async (c) => {
 
 // Reset all shuttle checks
 api.post("/guests/reset-shuttle-checks", async (c) => {
-  // Return current shuttle_checked states before resetting (for undo)
-  const { results: checkedGuests } = await c.env.DB.prepare(
-    "SELECT id FROM guests WHERE shuttle_checked = 1"
+  const { results: checkedPeople } = await c.env.DB.prepare(
+    "SELECT id FROM people WHERE shuttle_checked = 1"
   ).all<{ id: string }>();
 
-  await c.env.DB.prepare("UPDATE guests SET shuttle_checked = 0").run();
+  await c.env.DB.prepare("UPDATE people SET shuttle_checked = 0").run();
 
-  return c.json({ undoGuestIds: checkedGuests.map((g) => g.id) });
+  return c.json({ undoGuestIds: checkedPeople.map((p) => p.id) });
 });
 
-// Undo reset shuttle checks (restore specific guests as checked)
+// Undo reset shuttle checks
 api.post("/guests/undo-reset-shuttle-checks", async (c) => {
   let body: unknown;
   try {
@@ -674,13 +850,15 @@ api.post("/guests/undo-reset-shuttle-checks", async (c) => {
   }
 
   const statements = (guestIds as string[]).map((id) =>
-    c.env.DB.prepare("UPDATE guests SET shuttle_checked = 1 WHERE id = ?").bind(id)
+    c.env.DB.prepare("UPDATE people SET shuttle_checked = 1 WHERE id = ?").bind(id)
   );
 
   await c.env.DB.batch(statements);
 
   return c.json({ success: true });
 });
+
+// ── Color groups ──────────────────────────────────────────────────────────────
 
 // Get all color groups
 api.get("/color-groups", async (c) => {

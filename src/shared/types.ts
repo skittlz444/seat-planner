@@ -22,3 +22,8 @@ export interface ColorGroup {
   hex: string;
   name: string;
 }
+
+export interface Layout {
+  id: string;
+  name: string;
+}
