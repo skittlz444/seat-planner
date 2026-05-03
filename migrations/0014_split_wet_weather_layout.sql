@@ -20,11 +20,12 @@ UPDATE layouts
 SET name = 'Main'
 WHERE id = 'default';
 
--- Move all tables after table 9 into the wet-weather layout. In the app's
--- zero-based sort_order, table 10 is sort_order 9, so sort_order >= 9 is the
--- "after table 9" boundary. Keep table IDs intact so existing seat assignments
--- and canvas table references remain valid; subtracting 9 makes the moved
--- wet-weather tables start at sort_order 0 within their new layout.
+-- Move all tables after table 9 into the wet-weather layout. In zero-based
+-- sort_order, the first table is 0, so table 10 has sort_order 9. Thus
+-- sort_order >= 9 captures table 10 and later. Keep table IDs intact so
+-- existing seat assignments and canvas table references remain valid;
+-- subtracting 9 makes the moved wet-weather tables start at sort_order 0
+-- within their new layout.
 UPDATE tables
 SET
   layout_id = 'wet-weather',

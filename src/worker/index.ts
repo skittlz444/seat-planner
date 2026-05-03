@@ -168,8 +168,6 @@ api.put("/layouts/:id", async (c) => {
     return c.json({ error: "name must be a non-empty string" }, 400);
   }
 
-  // Only update canvas fields here. Layout names are managed by /layouts so
-  // saving canvas positions cannot accidentally rename the selected layout.
   const result = await c.env.DB.prepare(
     "UPDATE layouts SET name = ? WHERE id = ?"
   ).bind(name.trim(), layoutId).run();
@@ -621,6 +619,8 @@ api.delete("/tables/:id", async (c) => {
 api.get("/canvas-layout", async (c) => {
   const layoutId = c.req.query("layout") || "default";
 
+  // Only update canvas fields here. Layout names are managed by /layouts so
+  // saving canvas positions cannot accidentally rename the selected layout.
   const result = await c.env.DB.prepare(
     "SELECT items FROM layouts WHERE id = ?"
   ).bind(layoutId).first<{ items: string }>();
