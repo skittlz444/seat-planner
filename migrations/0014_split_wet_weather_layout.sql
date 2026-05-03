@@ -28,7 +28,7 @@ WHERE id = 'default';
 UPDATE tables
 SET
   layout_id = 'wet-weather',
-  sort_order = sort_order - 9
+  sort_order = max(0, sort_order - 9)
 WHERE layout_id = 'default'
   AND sort_order >= 9;
 
@@ -96,7 +96,7 @@ SET person_id = (
   JOIN people AS wet_person ON wet_person.id = guests.person_id
   WHERE main_guest.layout_id = 'default'
     AND lower(trim(main_person.name)) = lower(trim(wet_person.name))
-  ORDER BY main_guest.rowid
+  ORDER BY main_person.id
   LIMIT 1
 )
 WHERE layout_id = 'wet-weather'
@@ -116,6 +116,8 @@ WHERE id NOT IN (SELECT DISTINCT person_id FROM guests);
 -- Split canvas items. A canvas item belongs to Wet Weather if either:
 --   * it is a table item for one of the moved wet-weather table IDs, or
 --   * it is a drawing/text item in the right-hand wet-weather canvas area.
+-- The screenshots/current canvas JSON place the interim wet-weather layout to
+-- the right of the main layout; x >= 1700 is the boundary between those areas.
 UPDATE layouts
 SET items = COALESCE(
   (

@@ -539,6 +539,9 @@ const App = () => {
       const remaining = layouts.filter((l) => l.id !== layoutId);
       setLayouts(remaining);
       if (currentLayoutId === layoutId && remaining.length > 0) {
+        setGuests([]);
+        setTables([]);
+        setLoading(true);
         setCurrentLayoutId(remaining[0].id);
       }
       showNotification(`Layout "${layout.name}" deleted`);
