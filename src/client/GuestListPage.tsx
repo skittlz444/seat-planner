@@ -675,6 +675,7 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
                             )}
                           </span>
                         ) : (
+                          /* spacer keeps the name column left-aligned when no table is assigned */
                           <span className="shrink-0 w-20" />
                         )}
                         {guest.arrived && (
