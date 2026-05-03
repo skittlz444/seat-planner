@@ -3,6 +3,7 @@ import { ArrowLeft, Bus, Clock, Printer, X, Search, Check, RotateCcw, Undo2 } fr
 import type { Guest, ColorGroup } from "../shared/types";
 
 interface Props {
+  layoutId: string;
   onBack: () => void;
 }
 
@@ -17,7 +18,7 @@ interface TableInfo {
   nickname: string | null;
 }
 
-const ShuttlePage = ({ onBack }: Props) => {
+const ShuttlePage = ({ layoutId, onBack }: Props) => {
   const [allGuests, setAllGuests] = useState<ShuttleGuest[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [colorGroups, setColorGroups] = useState<ColorGroup[]>([]);
@@ -54,8 +55,8 @@ const ShuttlePage = ({ onBack }: Props) => {
     try {
       setLoading(true);
       const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
-        fetch("/api/guests"),
-        fetch("/api/tables"),
+        fetch(`/api/guests?layout=${layoutId}`),
+        fetch(`/api/tables?layout=${layoutId}`),
         fetch("/api/color-groups"),
       ]);
 

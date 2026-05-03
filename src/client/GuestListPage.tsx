@@ -4,6 +4,7 @@ import type { Guest, ColorGroup } from "../shared/types";
 import { buildSeatMap } from "../shared/seatMap";
 
 interface Props {
+  layoutId: string;
   onBack: () => void;
 }
 
@@ -21,7 +22,7 @@ interface TableInfo {
   guests: AllGuest[];
 }
 
-const GuestListPage = ({ onBack }: Props) => {
+const GuestListPage = ({ layoutId, onBack }: Props) => {
   const [allGuests, setAllGuests] = useState<AllGuest[]>([]);
   const [tables, setTables] = useState<TableInfo[]>([]);
   const [colorGroups, setColorGroups] = useState<ColorGroup[]>([]);
@@ -73,8 +74,8 @@ const GuestListPage = ({ onBack }: Props) => {
     try {
       setLoading(true);
       const [guestsRes, tablesRes, colorGroupsRes] = await Promise.all([
-        fetch("/api/guests"),
-        fetch("/api/tables"),
+        fetch(`/api/guests?layout=${layoutId}`),
+        fetch(`/api/tables?layout=${layoutId}`),
         fetch("/api/color-groups"),
       ]);
 
