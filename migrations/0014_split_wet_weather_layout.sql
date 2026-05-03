@@ -117,10 +117,16 @@ WHERE id NOT IN (SELECT DISTINCT person_id FROM guests);
 -- Keep the Wet Weather layout on the same shared roster as Main. Guests who
 -- were not seated at moved wet-weather tables still need an unassigned seat
 -- assignment row so they remain visible when switching layouts.
--- D1 migrations cannot call the app's crypto.randomUUID(), so randomblob(16)
--- is used here for these opaque assignment IDs.
+-- D1 migrations cannot call the app's crypto.randomUUID(), so generate
+-- UUID-shaped opaque assignment IDs with SQLite randomblob().
 INSERT OR IGNORE INTO guests (id, person_id, layout_id, table_id, table_position)
-SELECT lower(hex(randomblob(16))), people.id, 'wet-weather', NULL, NULL
+SELECT lower(
+  hex(randomblob(4)) || '-' ||
+  hex(randomblob(2)) || '-' ||
+  '4' || substr(hex(randomblob(2)), 2) || '-' ||
+  substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)), 2) || '-' ||
+  hex(randomblob(6))
+), people.id, 'wet-weather', NULL, NULL
 FROM people
 WHERE NOT EXISTS (
   SELECT 1

@@ -236,13 +236,13 @@ api.post("/guests", async (c) => {
   const { name, color, layoutId: rawLayoutId } = await c.req.json<{ name: string; color: string; layoutId?: string }>();
   const layoutId = rawLayoutId || "default";
 
+  if (!(await layoutExists(c.env.DB, layoutId))) {
+    return c.json({ error: "Layout not found" }, 404);
+  }
+
   const { results: layouts } = await c.env.DB.prepare(
     "SELECT id FROM layouts"
   ).all<{ id: string }>();
-
-  if (!layouts.some((layout) => layout.id === layoutId)) {
-    return c.json({ error: "Layout not found" }, 404);
-  }
 
   const personId = generateId();
 
@@ -432,13 +432,13 @@ api.post("/guests/bulk", async (c) => {
 
   const guests: Array<{ id: string; name: string; color: string; table_id: null; table_position: null; arrived: number; shuttle_time: null; shuttle_checked: number }> = [];
 
+  if (!(await layoutExists(c.env.DB, layoutId))) {
+    return c.json({ error: "Layout not found" }, 404);
+  }
+
   const { results: layouts } = await c.env.DB.prepare(
     "SELECT id FROM layouts"
   ).all<{ id: string }>();
-
-  if (!layouts.some((layout) => layout.id === layoutId)) {
-    return c.json({ error: "Layout not found" }, 404);
-  }
 
   const statements = validNames.flatMap((name) => {
     const personId = generateId();
