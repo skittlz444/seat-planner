@@ -12,7 +12,7 @@ import {
   ZoomOut,
   Check,
 } from "lucide-react";
-import type { Guest, Table } from "../shared/types";
+import type { Guest, Table, Layout } from "../shared/types";
 import { buildSeatMap } from "../shared/seatMap";
 
 // ── Canvas item types ────────────────────────────────────────────────────────
@@ -86,10 +86,14 @@ function uid(): string {
 
 interface Props {
   layoutId: string;
+  layouts: Layout[];
+  onLayoutChange?: (id: string) => void;
   onBack: () => void;
 }
 
-const TableLayoutPage = ({ layoutId, onBack }: Props) => {
+const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
+  const [activeLayoutId, setActiveLayoutId] = useState(layoutId);
+  const fetchRequestIdRef = useRef(0);
   // Data from API
   const [tables, setTables] = useState<Table[]>([]);
   const [loading, setLoading] = useState(true);
@@ -163,15 +167,22 @@ const TableLayoutPage = ({ layoutId, onBack }: Props) => {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const layoutLoadedRef = useRef(false);
 
+  // Sync activeLayoutId if the parent layoutId prop changes while mounted
+  useEffect(() => {
+    setActiveLayoutId(layoutId);
+  }, [layoutId]);
+
   // ── Data fetching ────────────────────────────────────────────────────────
 
   const fetchData = useCallback(async () => {
+    const requestId = ++fetchRequestIdRef.current;
     try {
       setLoading(true);
+      layoutLoadedRef.current = false;
       const [guestsRes, tablesRes, layoutRes] = await Promise.all([
-        fetch(`/api/guests?layout=${layoutId}`),
-        fetch(`/api/tables?layout=${layoutId}`),
-        fetch(`/api/canvas-layout?layout=${layoutId}`),
+        fetch(`/api/guests?layout=${activeLayoutId}`),
+        fetch(`/api/tables?layout=${activeLayoutId}`),
+        fetch(`/api/canvas-layout?layout=${activeLayoutId}`),
       ]);
       if (!guestsRes.ok || !tablesRes.ok) throw new Error("Failed to fetch");
 
@@ -183,6 +194,8 @@ const TableLayoutPage = ({ layoutId, onBack }: Props) => {
         max_seats: number;
         sort_order: number;
       }> = await tablesRes.json();
+
+      if (requestId !== fetchRequestIdRef.current) return;
 
       setTables(
         tablesData.map((t) => ({
@@ -204,12 +217,15 @@ const TableLayoutPage = ({ layoutId, onBack }: Props) => {
       }
       layoutLoadedRef.current = true;
     } catch {
+      if (requestId !== fetchRequestIdRef.current) return;
       /* silently fail — data just won't show */
       layoutLoadedRef.current = true;
     } finally {
-      setLoading(false);
+      if (requestId === fetchRequestIdRef.current) {
+        setLoading(false);
+      }
     }
-  }, []);
+  }, [activeLayoutId]);
 
   useEffect(() => {
     fetchData();
@@ -222,7 +238,7 @@ const TableLayoutPage = ({ layoutId, onBack }: Props) => {
 
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
-      fetch(`/api/canvas-layout?layout=${layoutId}`, {
+      fetch(`/api/canvas-layout?layout=${activeLayoutId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(items),
@@ -234,7 +250,7 @@ const TableLayoutPage = ({ layoutId, onBack }: Props) => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     };
-  }, [items]);
+  }, [items, activeLayoutId]);
 
   // ── Coordinate helpers ───────────────────────────────────────────────────
 
@@ -1080,6 +1096,27 @@ const TableLayoutPage = ({ layoutId, onBack }: Props) => {
           <ArrowLeft size={16} /> Back to Planner
         </button>
         <h1 className="text-lg font-bold text-slate-800">Table Layout</h1>
+
+        {layouts.length > 1 && (
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 print:hidden">
+            {layouts.map((layout) => (
+              <button
+                key={layout.id}
+                onClick={() => {
+                  setActiveLayoutId(layout.id);
+                  onLayoutChange?.(layout.id);
+                }}
+                className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-all ${
+                  activeLayoutId === layout.id
+                    ? "bg-white text-indigo-600 shadow-sm"
+                    : "text-slate-500 hover:text-slate-700"
+                }`}
+              >
+                {layout.name}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Toolbar */}
         <div className="flex items-center gap-1 ml-4 bg-slate-100 rounded-lg p-1">

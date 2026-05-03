@@ -831,17 +831,17 @@ const App = () => {
 
   // Render layout page if selected
   if (currentPage === "layout") {
-    return <TableLayoutPage layoutId={currentLayoutId} onBack={() => setCurrentPage("planner")} />;
+    return <TableLayoutPage layoutId={currentLayoutId} layouts={layouts} onLayoutChange={setCurrentLayoutId} onBack={() => setCurrentPage("planner")} />;
   }
 
   // Render guest list page if selected
   if (currentPage === "guestlist") {
-    return <GuestListPage layoutId={currentLayoutId} onBack={() => setCurrentPage("planner")} />;
+    return <GuestListPage layoutId={currentLayoutId} layouts={layouts} onLayoutChange={setCurrentLayoutId} onBack={() => setCurrentPage("planner")} />;
   }
 
   // Render shuttle page if selected
   if (currentPage === "shuttle") {
-    return <ShuttlePage layoutId={currentLayoutId} onBack={() => setCurrentPage("planner")} />;
+    return <ShuttlePage layoutId={currentLayoutId} layouts={layouts} onLayoutChange={setCurrentLayoutId} onBack={() => setCurrentPage("planner")} />;
   }
 
   if (loading) {
