@@ -363,7 +363,7 @@ api.put("/guests/:id/move", async (c) => {
     ).bind(tableId, tablePosition, personId, layoutId).run();
 
     if (result.meta.changes === 0) {
-      return c.json({ error: "Guest assignment not found" }, 404);
+      return c.json({ error: "No guest assignment found for this person in the specified layout" }, 404);
     }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
