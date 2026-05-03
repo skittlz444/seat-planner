@@ -128,7 +128,6 @@ SET items = COALESCE(
       json_extract(value, '$.x2'),
       0
     ) >= 1700
-    OR COALESCE(json_extract(value, '$.x2'), 0) >= 1700
   ),
   '[]'
 )
@@ -152,7 +151,6 @@ SET items = COALESCE(
         json_extract(value, '$.x2'),
         0
       ) >= 1700
-      OR COALESCE(json_extract(value, '$.x2'), 0) >= 1700
     )
   ),
   '[]'
