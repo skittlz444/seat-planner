@@ -36,7 +36,7 @@ WHERE table_id IN (
 
 -- If the interim workaround duplicated guest rows, migration 0013 temporarily
 -- created duplicate people too. Re-point wet-weather assignments to the matching
--- main-layout person when there is an exact normalized-name + color match.
+-- main-layout person when there is an exact normalized-name match.
 --
 -- Before repointing, preserve person-level state onto the canonical main person
 -- where possible.
@@ -49,7 +49,6 @@ SET
       JOIN people AS wet_person ON wet_person.id = wet_guest.person_id
       WHERE wet_guest.layout_id = 'wet-weather'
         AND lower(trim(wet_person.name)) = lower(trim(people.name))
-        AND wet_person.color = people.color
         AND wet_person.arrived = 1
     )
     THEN 1 ELSE arrived
@@ -62,7 +61,6 @@ SET
       JOIN people AS wet_person ON wet_person.id = wet_guest.person_id
       WHERE wet_guest.layout_id = 'wet-weather'
         AND lower(trim(wet_person.name)) = lower(trim(people.name))
-        AND wet_person.color = people.color
         AND wet_person.shuttle_time IS NOT NULL
       LIMIT 1
     )
@@ -74,7 +72,6 @@ SET
       JOIN people AS wet_person ON wet_person.id = wet_guest.person_id
       WHERE wet_guest.layout_id = 'wet-weather'
         AND lower(trim(wet_person.name)) = lower(trim(people.name))
-        AND wet_person.color = people.color
         AND wet_person.shuttle_checked = 1
     )
     THEN 1 ELSE shuttle_checked
@@ -94,7 +91,6 @@ SET person_id = (
   JOIN people AS wet_person ON wet_person.id = guests.person_id
   WHERE main_guest.layout_id = 'default'
     AND lower(trim(main_person.name)) = lower(trim(wet_person.name))
-    AND main_person.color = wet_person.color
   ORDER BY main_guest.rowid
   LIMIT 1
 )
@@ -106,7 +102,6 @@ WHERE layout_id = 'wet-weather'
     JOIN people AS wet_person ON wet_person.id = guests.person_id
     WHERE main_guest.layout_id = 'default'
       AND lower(trim(main_person.name)) = lower(trim(wet_person.name))
-      AND main_person.color = wet_person.color
   );
 
 -- Remove duplicate people that are no longer referenced by any layout.
