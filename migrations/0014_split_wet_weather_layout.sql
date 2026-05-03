@@ -9,7 +9,9 @@
 --     Wet-weather drawing elements live in the right-hand canvas area (x/x1/x2
 --     >= 1700), and wet-weather table elements reference the moved table IDs.
 
--- Create the wet-weather layout with a stable ID.
+-- Create the wet-weather layout with a stable ID. INSERT OR IGNORE keeps the
+-- migration safe to re-run locally or in partially migrated environments without
+-- clobbering an existing wet-weather layout row.
 INSERT OR IGNORE INTO layouts (id, name, items, updated_at)
 VALUES ('wet-weather', 'Wet Weather', '[]', datetime('now'));
 

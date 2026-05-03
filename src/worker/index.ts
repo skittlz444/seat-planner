@@ -674,11 +674,15 @@ api.put("/canvas-layout", async (c) => {
     }
   }
 
-  await c.env.DB.prepare(
-    "INSERT OR REPLACE INTO layouts (id, items, updated_at) VALUES (?, ?, datetime('now'))"
+  const result = await c.env.DB.prepare(
+    "UPDATE layouts SET items = ?, updated_at = datetime('now') WHERE id = ?"
   )
-    .bind(layoutId, JSON.stringify(items))
+    .bind(JSON.stringify(items), layoutId)
     .run();
+
+  if (result.meta.changes === 0) {
+    return c.json({ error: "Layout not found" }, 404);
+  }
 
   return c.json({ success: true });
 });
