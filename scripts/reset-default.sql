@@ -9,6 +9,8 @@
 
 BEGIN TRANSACTION;
 
+-- Delete child rows before parent rows so the script remains compatible with
+-- databases that enforce foreign key constraints.
 DELETE FROM guests;
 DELETE FROM tables;
 DELETE FROM people;
