@@ -7,12 +7,12 @@
 -- This intentionally clears application data only; it does not modify schema or
 -- migration history. Deleting people also removes all arrival and shuttle state.
 
-BEGIN TRANSACTION;
 PRAGMA defer_foreign_keys = on;
 
+BEGIN TRANSACTION;
 DELETE FROM guests;
-DELETE FROM people;
 DELETE FROM tables;
+DELETE FROM people;
 DELETE FROM layouts;
 DELETE FROM color_groups;
 
