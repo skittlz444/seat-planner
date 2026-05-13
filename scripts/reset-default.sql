@@ -9,11 +9,11 @@
 
 BEGIN TRANSACTION;
 
--- Delete child rows before parent rows so the script remains compatible with
--- databases that enforce foreign key constraints.
+-- Delete guest assignment rows before their parent roster/table data so the
+-- script remains compatible with databases that enforce foreign key constraints.
 DELETE FROM guests;
-DELETE FROM tables;
 DELETE FROM people;
+DELETE FROM tables;
 DELETE FROM layouts;
 DELETE FROM color_groups;
 
