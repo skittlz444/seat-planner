@@ -8,6 +8,7 @@
 -- migration history. Deleting people also removes all arrival and shuttle state.
 
 BEGIN TRANSACTION;
+PRAGMA defer_foreign_keys = on;
 
 DELETE FROM guests;
 DELETE FROM people;
