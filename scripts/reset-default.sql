@@ -17,3 +17,4 @@ DELETE FROM layouts;
 DELETE FROM color_groups;
 
 COMMIT;
+PRAGMA defer_foreign_keys = off;
