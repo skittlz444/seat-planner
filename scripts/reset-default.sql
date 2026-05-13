@@ -9,8 +9,6 @@
 
 BEGIN TRANSACTION;
 
--- Delete guest assignment rows before their parent roster/table data so the
--- script remains compatible with databases that enforce foreign key constraints.
 DELETE FROM guests;
 DELETE FROM people;
 DELETE FROM tables;
