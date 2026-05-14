@@ -994,6 +994,8 @@ api.post("/settings/reset-default", async (c) => {
     );
   }
 
+  // D1 batch() executes these statements as a transactional batch, so a failure
+  // in any delete or insert rolls the reset back instead of leaving partial data.
   await c.env.DB.batch(resetStatements);
 
   return c.json({

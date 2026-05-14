@@ -6,7 +6,7 @@
 --
 -- This intentionally clears application data only; it does not modify schema or
 -- migration history. Deleting people also removes all arrival and shuttle state.
--- Colour groups are recreated with their default names.
+-- Color groups are recreated with their default names.
 
 PRAGMA defer_foreign_keys = on;
 
