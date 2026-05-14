@@ -977,7 +977,7 @@ api.post("/settings/reset-default", async (c) => {
     return c.json({ error: "confirmation must be RESET" }, 400);
   }
 
-  await c.env.DB.batch([
+  const resetStatements: D1PreparedStatement[] = [
     c.env.DB.prepare("DELETE FROM guests"),
     c.env.DB.prepare("DELETE FROM tables"),
     c.env.DB.prepare("DELETE FROM people"),
@@ -986,11 +986,15 @@ api.post("/settings/reset-default", async (c) => {
     c.env.DB.prepare(
       "INSERT INTO layouts (id, name, items, updated_at) VALUES ('default', 'Main', '[]', datetime('now'))"
     ),
-    ...DEFAULT_COLOR_GROUPS.map((group) =>
+  ];
+  for (const group of DEFAULT_COLOR_GROUPS) {
+    resetStatements.push(
       c.env.DB.prepare("INSERT INTO color_groups (hex, name) VALUES (?, ?)")
         .bind(group.hex, group.name)
-    ),
-  ]);
+    );
+  }
+
+  await c.env.DB.batch(resetStatements);
 
   return c.json({
     success: true,

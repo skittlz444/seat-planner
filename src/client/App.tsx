@@ -1053,7 +1053,7 @@ const App = () => {
               <div>
                 <h4 className="font-bold text-red-700">Reset app data</h4>
                 <p className="text-sm text-red-700 mt-1">
-                  This clears all guests, tables, layouts, arrival state, and shuttle state. Colour groups are recreated with their default names.
+                  This clears all guests, tables, layouts, arrival state, and shuttle state. Color groups are recreated with their default names.
                 </p>
               </div>
 
