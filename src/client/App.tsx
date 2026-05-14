@@ -1053,7 +1053,7 @@ const App = () => {
               <div>
                 <h4 className="font-bold text-red-700">Reset app data</h4>
                 <p className="text-sm text-red-700 mt-1">
-                  This clears all guests, tables, layouts, arrival state, and shuttle state. Colour groups remain available and their names reset to the defaults.
+                  This clears all guests, tables, layouts, arrival state, and shuttle state. Colour groups are recreated with their default names.
                 </p>
               </div>
 
@@ -1065,7 +1065,7 @@ const App = () => {
                   className="mt-1"
                   disabled={resetInProgress}
                 />
-                <span>I understand this will permanently delete the current planner data.</span>
+                <span>I understand this will permanently delete all current guests, tables, layouts, and arrival/shuttle tracking.</span>
               </label>
 
               <div>
