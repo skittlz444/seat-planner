@@ -32,6 +32,8 @@ interface ColorGroup {
 
 const app = new Hono<{ Bindings: Env }>();
 
+const DEFAULT_LAYOUT = { id: "default", name: "Main" };
+
 const DEFAULT_COLOR_GROUPS: ColorGroup[] = [
   { name: "Blue", hex: "#3b82f6" },
   { name: "Pink", hex: "#ec4899" },
@@ -984,8 +986,8 @@ api.post("/settings/reset-default", async (c) => {
     c.env.DB.prepare("DELETE FROM layouts"),
     c.env.DB.prepare("DELETE FROM color_groups"),
     c.env.DB.prepare(
-      "INSERT INTO layouts (id, name, items, updated_at) VALUES ('default', 'Main', '[]', datetime('now'))"
-    ),
+      "INSERT INTO layouts (id, name, items, updated_at) VALUES (?, ?, '[]', datetime('now'))"
+    ).bind(DEFAULT_LAYOUT.id, DEFAULT_LAYOUT.name),
   ];
   for (const group of DEFAULT_COLOR_GROUPS) {
     resetStatements.push(
@@ -1000,7 +1002,7 @@ api.post("/settings/reset-default", async (c) => {
 
   return c.json({
     success: true,
-    layout: { id: "default", name: "Main" },
+    layout: DEFAULT_LAYOUT,
     colorGroups: DEFAULT_COLOR_GROUPS,
   });
 });

@@ -1065,7 +1065,7 @@ const App = () => {
                   className="mt-1"
                   disabled={resetInProgress}
                 />
-                <span>I understand this will permanently delete all current guests, tables, layouts, and arrival/shuttle tracking.</span>
+                <span>I understand this will permanently delete all current guests, tables, layouts, and arrival/shuttle tracking, and reset color-group names.</span>
               </label>
 
               <div>
