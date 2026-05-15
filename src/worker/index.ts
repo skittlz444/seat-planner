@@ -32,6 +32,19 @@ interface ColorGroup {
 
 const app = new Hono<{ Bindings: Env }>();
 
+const DEFAULT_LAYOUT = { id: "default", name: "Main" };
+
+const DEFAULT_COLOR_GROUPS: ColorGroup[] = [
+  { name: "Blue", hex: "#3b82f6" },
+  { name: "Pink", hex: "#ec4899" },
+  { name: "Green", hex: "#10b981" },
+  { name: "Purple", hex: "#8b5cf6" },
+  { name: "Red", hex: "#ef4444" },
+  { name: "Amber", hex: "#f59e0b" },
+  { name: "Cyan", hex: "#06b6d4" },
+  { name: "Indigo", hex: "#6366f1" },
+];
+
 // Generate a unique ID using crypto.randomUUID()
 function generateId(): string {
   return crypto.randomUUID();
@@ -946,6 +959,52 @@ api.delete("/color-groups/:hex", async (c) => {
     .run();
 
   return c.json({ success: true });
+});
+
+// ── Settings ─────────────────────────────────────────────────────────────────
+
+api.post("/settings/reset-default", async (c) => {
+  let body: unknown;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "Invalid JSON body" }, 400);
+  }
+
+  if (
+    typeof body !== "object" ||
+    body === null ||
+    (body as Record<string, unknown>).confirmation !== "RESET"
+  ) {
+    return c.json({ error: "confirmation must be RESET" }, 400);
+  }
+
+  const resetStatements: D1PreparedStatement[] = [
+    c.env.DB.prepare("DELETE FROM guests"),
+    c.env.DB.prepare("DELETE FROM tables"),
+    c.env.DB.prepare("DELETE FROM people"),
+    c.env.DB.prepare("DELETE FROM layouts"),
+    c.env.DB.prepare("DELETE FROM color_groups"),
+    c.env.DB.prepare(
+      "INSERT INTO layouts (id, name, items, updated_at) VALUES (?, ?, '[]', datetime('now'))"
+    ).bind(DEFAULT_LAYOUT.id, DEFAULT_LAYOUT.name),
+  ];
+  for (const group of DEFAULT_COLOR_GROUPS) {
+    resetStatements.push(
+      c.env.DB.prepare("INSERT INTO color_groups (hex, name) VALUES (?, ?)")
+        .bind(group.hex, group.name)
+    );
+  }
+
+  // D1 batch() executes these statements as a transactional batch, so a failure
+  // in any delete or insert rolls the reset back instead of leaving partial data.
+  await c.env.DB.batch(resetStatements);
+
+  return c.json({
+    success: true,
+    layout: DEFAULT_LAYOUT,
+    colorGroups: DEFAULT_COLOR_GROUPS,
+  });
 });
 
 // Mount API routes

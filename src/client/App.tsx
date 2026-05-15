@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check, Bus, Printer } from "lucide-react";
+import { Plus, Users, GripVertical, Search, Trash2, X, UserPlus, LayoutDashboard, ClipboardList, Check, Bus, Printer, Settings } from "lucide-react";
 import TableLayoutPage from "./TableLayoutPage";
 import GuestListPage from "./GuestListPage";
 import ShuttlePage from "./ShuttlePage";
@@ -63,6 +63,12 @@ const App = () => {
   const [showBulkAddModal, setShowBulkAddModal] = useState(false);
   const [bulkAddNames, setBulkAddNames] = useState("");
   const [bulkAddColor, setBulkAddColor] = useState("#3b82f6");
+
+  // Settings/reset modal state
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [resetAcknowledged, setResetAcknowledged] = useState(false);
+  const [resetConfirmText, setResetConfirmText] = useState("");
+  const [resetInProgress, setResetInProgress] = useState(false);
 
   // Table drag reorder state
   const [draggedTableId, setDraggedTableId] = useState<string | null>(null);
@@ -574,6 +580,48 @@ const App = () => {
     }
   };
 
+  const closeSettingsModal = () => {
+    setShowSettingsModal(false);
+    setResetAcknowledged(false);
+    setResetConfirmText("");
+  };
+
+  const resetDefaultData = async () => {
+    if (!resetAcknowledged || resetConfirmText !== "RESET" || resetInProgress) return;
+
+    try {
+      setResetInProgress(true);
+      const response = await fetch("/api/settings/reset-default", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmation: resetConfirmText }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({ error: "Failed to reset app data" })) as { error?: string };
+        throw new Error(err.error || "Failed to reset app data");
+      }
+
+      const data = await response.json() as { layout: Layout; colorGroups: ColorGroup[] };
+      const colorNames = data.colorGroups.reduce<Record<string, string>>((acc, group) => {
+        acc[group.hex] = group.name;
+        return acc;
+      }, {});
+
+      setCurrentLayoutId(data.layout.id);
+      setLayouts([data.layout]);
+      setGuests([]);
+      setTables([]);
+      setColorGroupNames(colorNames);
+      closeSettingsModal();
+      showNotification("App reset to default state");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to reset app data");
+    } finally {
+      setResetInProgress(false);
+    }
+  };
+
   const primeDrag = (guestId: string, fromTableId: string | null) => {
     if (editingGuestId === guestId) return; // Don't start drag if editing this guest
     setDraggedGuestId({ guestId, fromTableId });
@@ -986,6 +1034,65 @@ const App = () => {
         </div>
       )}
 
+      {/* Settings Modal */}
+      {showSettingsModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-bold text-slate-800">Settings</h3>
+              <button
+                onClick={closeSettingsModal}
+                className="p-2 hover:bg-slate-100 rounded-lg"
+                disabled={resetInProgress}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-4">
+              <div>
+                <h4 className="font-bold text-red-700">Reset app data</h4>
+                <p className="text-sm text-red-700 mt-1">
+                  This clears all guests, tables, layouts, arrival state, and shuttle state. Color groups are recreated with their default names.
+                </p>
+              </div>
+
+              <label className="flex items-start gap-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={resetAcknowledged}
+                  onChange={(e) => setResetAcknowledged(e.target.checked)}
+                  className="mt-1"
+                  disabled={resetInProgress}
+                />
+                <span>I understand this will permanently delete all current guests, tables, layouts, and arrival/shuttle tracking, and reset color-group names.</span>
+              </label>
+
+              <div>
+                <label className="block text-sm font-medium text-slate-700 mb-1">
+                  Type RESET to confirm
+                </label>
+                <input
+                  type="text"
+                  value={resetConfirmText}
+                  onChange={(e) => setResetConfirmText(e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-slate-200 focus:ring-2 focus:ring-red-500 outline-none text-sm"
+                  disabled={resetInProgress}
+                />
+              </div>
+
+              <button
+                onClick={resetDefaultData}
+                disabled={!resetAcknowledged || resetConfirmText !== "RESET" || resetInProgress}
+                className="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {resetInProgress ? "Resetting..." : "Reset everything"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
@@ -1034,6 +1141,12 @@ const App = () => {
         </div>
 
         <div className="flex gap-2">
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 border border-slate-200 print:hidden"
+          >
+            <Settings size={20} /> Settings
+          </button>
           <button
             onClick={() => window.print()}
             className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 print:hidden"
