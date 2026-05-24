@@ -1093,7 +1093,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
   );
 
   const selectedItem = items.find((it) => it.id === selectedId) ?? null;
-  const tablesPanelVisibilityClass = tablesPanelOpen ? "grid" : "hidden md:block";
+  const tablesPanelClass = tablesPanelOpen ? "grid" : "hidden md:block";
 
   return (
     <div className="h-[100dvh] flex flex-col bg-slate-100 font-sans text-slate-900 overflow-hidden">
@@ -1292,7 +1292,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
           </div>
           <div
             id="layout-tables-panel"
-            className={`${tablesPanelVisibilityClass} mt-3 grid-cols-1 sm:grid-cols-2 md:block md:space-y-2 gap-2`}
+            className={`${tablesPanelClass} mt-3 grid-cols-1 sm:grid-cols-2 md:block md:space-y-2 gap-2`}
           >
             {tables.map((table) => {
               const onCanvas = isTableOnCanvas(table.id);
@@ -1505,7 +1505,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
           <button
             type="button"
-            className="absolute inset-0 h-full w-full cursor-default"
+            className="absolute inset-0 h-full w-full"
             aria-label="Close help"
             onClick={() => setShowHelpModal(false)}
           />
