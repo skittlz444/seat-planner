@@ -1505,6 +1505,14 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
           onClick={() => setShowHelpModal(false)}
+          onKeyDown={(e) => {
+            if (
+              e.target === e.currentTarget &&
+              (e.key === "Enter" || e.key === " ")
+            ) {
+              setShowHelpModal(false);
+            }
+          }}
         >
           <div
             role="dialog"
@@ -1512,6 +1520,8 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
             aria-labelledby="layout-help-title"
             className="w-full max-w-md rounded-xl bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
+            tabIndex={-1}
+            autoFocus
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 id="layout-help-title" className="text-base font-bold text-slate-700">
@@ -1522,7 +1532,6 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
                 onClick={() => setShowHelpModal(false)}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Close help"
-                autoFocus
               >
                 <X size={18} />
               </button>
