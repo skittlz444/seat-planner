@@ -1142,12 +1142,6 @@ const App = () => {
 
         <div className="flex gap-2">
           <button
-            onClick={() => setShowSettingsModal(true)}
-            className="flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 border border-slate-200 print:hidden"
-          >
-            <Settings size={20} /> Settings
-          </button>
-          <button
             onClick={() => window.print()}
             className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 print:hidden"
           >
@@ -1176,6 +1170,12 @@ const App = () => {
             className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
           >
             <Plus size={20} /> Add Table
+          </button>
+          <button
+            onClick={() => setShowSettingsModal(true)}
+            className="flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 border border-slate-200 print:hidden"
+          >
+            <Settings size={20} /> Settings
           </button>
         </div>
       </header>
