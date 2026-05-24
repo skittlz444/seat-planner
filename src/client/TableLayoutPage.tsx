@@ -1502,24 +1502,18 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         </div>
       </div>
       {showHelpModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-          onClick={() => setShowHelpModal(false)}
-          onKeyDown={(e) => {
-            if (
-              e.target === e.currentTarget &&
-              (e.key === "Enter" || e.key === " ")
-            ) {
-              setShowHelpModal(false);
-            }
-          }}
-        >
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full cursor-default"
+            aria-label="Close help"
+            onClick={() => setShowHelpModal(false)}
+          />
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="layout-help-title"
-            className="w-full max-w-md rounded-xl bg-white p-4 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
+            className="relative z-10 w-full max-w-md rounded-xl bg-white p-4 shadow-xl"
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 id="layout-help-title" className="text-base font-bold text-slate-700">
