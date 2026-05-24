@@ -1520,8 +1520,6 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
             aria-labelledby="layout-help-title"
             className="w-full max-w-md rounded-xl bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
-            tabIndex={-1}
-            autoFocus
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 id="layout-help-title" className="text-base font-bold text-slate-700">
