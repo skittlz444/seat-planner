@@ -1093,6 +1093,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
   );
 
   const selectedItem = items.find((it) => it.id === selectedId) ?? null;
+  const tablesPanelVisibilityClass = tablesPanelOpen ? "grid" : "hidden md:block";
 
   return (
     <div className="h-[100dvh] flex flex-col bg-slate-100 font-sans text-slate-900 overflow-hidden">
@@ -1289,7 +1290,10 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
               </button>
             </div>
           </div>
-          <div id="layout-tables-panel" className={`${tablesPanelOpen ? "grid" : "hidden"} mt-3 grid-cols-1 sm:grid-cols-2 md:block md:space-y-2 gap-2`}>
+          <div
+            id="layout-tables-panel"
+            className={`${tablesPanelVisibilityClass} mt-3 grid-cols-1 sm:grid-cols-2 md:block md:space-y-2 gap-2`}
+          >
             {tables.map((table) => {
               const onCanvas = isTableOnCanvas(table.id);
               return (
