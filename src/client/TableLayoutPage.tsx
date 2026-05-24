@@ -570,6 +570,10 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (showHelpModal) {
+        if (e.key === "Escape" || e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          e.stopPropagation();
+        }
         if (e.key === "Escape") {
           setShowHelpModal(false);
         }
