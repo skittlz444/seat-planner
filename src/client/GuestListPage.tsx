@@ -374,17 +374,17 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-8 font-sans text-slate-900">
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed top-4 right-4 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg">
+        <div className="fixed top-3 left-3 right-3 sm:left-auto sm:right-4 sm:top-4 z-50 bg-slate-800 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg text-sm sm:text-base">
           {notification}
         </div>
       )}
 
       {/* Undo banner */}
       {undoGuestIds && undoGuestIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-4">
+        <div className="fixed bottom-4 left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 bg-slate-800 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
           <span className="text-sm font-medium">All arrivals were reset</span>
           <button
             onClick={undoReset}
@@ -403,8 +403,8 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-sm shadow-xl my-auto">
             <h3 className="text-lg font-bold text-slate-800 mb-2">
               Reset All Arrivals?
             </h3>
@@ -433,11 +433,11 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
       {/* Arrival Modal */}
       {arrivalModal && (
         <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto"
           onClick={() => setArrivalModal(null)}
         >
           <div
-            className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl"
+            className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-sm shadow-xl my-auto max-h-[calc(100vh-2rem)] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-4">
@@ -513,15 +513,15 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
 
       {/* Header */}
       <header className="max-w-4xl mx-auto mb-8">
-        <div className="flex items-center gap-4 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4 mb-4">
           <button
             onClick={onBack}
-            className="p-2 hover:bg-white rounded-xl transition-colors"
+            className="self-start p-2 hover:bg-white rounded-xl transition-colors"
           >
             <ArrowLeft size={20} className="text-slate-600" />
           </button>
           <div className="flex-1">
-            <h1 className="text-2xl font-bold text-slate-800 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">
               Guest List
             </h1>
             <p className="text-slate-500 text-sm font-medium">
@@ -529,7 +529,8 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
             </p>
           </div>
           {layouts.length > 1 && (
-            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1 print:hidden">
+            <div className="w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 print:hidden">
+            <div className="inline-flex min-w-max items-center gap-1 bg-slate-100 rounded-xl p-1">
               {layouts.map((layout) => (
                 <button
                   key={layout.id}
@@ -547,8 +548,9 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
                 </button>
               ))}
             </div>
+            </div>
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto">
             <label className="flex items-center gap-2 print:hidden cursor-pointer select-none">
               <div
                 role="switch"
@@ -564,14 +566,14 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
             </label>
             <button
               onClick={() => window.print()}
-              className="flex items-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-md active:scale-95 print:hidden"
+              className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-md active:scale-95 print:hidden"
             >
               <Printer size={16} /> Print
             </button>
             <button
               onClick={() => setShowResetConfirm(true)}
               disabled={arrivedCount === 0}
-              className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed print:hidden"
+              className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed print:hidden"
             >
               <RotateCcw size={16} /> Reset
             </button>
@@ -624,7 +626,7 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
               className="guest-group-print-page bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden"
             >
               <div
-                className="px-5 py-3 flex items-center justify-between"
+                className="px-4 sm:px-5 py-3 flex items-center justify-between gap-3"
                 style={{ borderLeft: `4px solid ${colorHex}` }}
               >
                 <div className="flex items-center gap-3">
@@ -650,7 +652,7 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
                     return (
                       <div
                         key={guest.id}
-                        className={`guest-list-row-print-safe flex items-center gap-3 px-5 py-3 cursor-pointer hover:bg-slate-50 transition-colors ${
+                        className={`guest-list-row-print-safe flex flex-wrap sm:flex-nowrap items-center gap-3 px-4 sm:px-5 py-3 cursor-pointer hover:bg-slate-50 transition-colors ${
                           guest.arrived ? "bg-green-50/50" : ""
                         }`}
                         onClick={() => toggleArrival(guest)}
@@ -678,7 +680,7 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
                           </span>
                         </div>
                         {guestTable ? (
-                          <span className="shrink-0 text-sm font-medium text-slate-600 px-2 py-0.5 rounded border border-slate-200 bg-slate-100 print:bg-transparent whitespace-nowrap">
+                          <span className="shrink-0 max-w-full text-sm font-medium text-slate-600 px-2 py-0.5 rounded border border-slate-200 bg-slate-100 print:bg-transparent whitespace-nowrap truncate">
                             {guestTable.name}
                             {guestTable.nickname && (
                               <span className="print:hidden">
@@ -691,7 +693,7 @@ const GuestListPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => 
                           <span className="shrink-0 w-20" />
                         )}
                         {guest.arrived && (
-                          <span className="text-xs font-bold text-green-500">
+                          <span className="ml-auto text-xs font-bold text-green-500">
                             ✓ Here
                           </span>
                         )}

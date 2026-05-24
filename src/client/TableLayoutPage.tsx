@@ -11,6 +11,9 @@ import {
   ZoomIn,
   ZoomOut,
   Check,
+  HelpCircle,
+  ChevronDown,
+  X,
 } from "lucide-react";
 import type { Guest, Table, Layout } from "../shared/types";
 import { buildSeatMap } from "../shared/seatMap";
@@ -104,6 +107,8 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
   const [tool, setTool] = useState<Tool>("select");
   const [zoom, setZoom] = useState(1);
   const [showFullNames, setShowFullNames] = useState(false);
+  const [tablesPanelOpen, setTablesPanelOpen] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
 
   // Drag state
   const [dragging, setDragging] = useState<{
@@ -564,6 +569,17 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (showHelpModal) {
+        if (e.key === "Escape" || e.key === "Delete" || e.key === "Backspace") {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+        if (e.key === "Escape") {
+          setShowHelpModal(false);
+        }
+        return;
+      }
+
       if (e.key === "Delete" || e.key === "Backspace") {
         // Don't delete if editing text or any input/textarea is focused
         if (editingTextId) return;
@@ -585,7 +601,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedId, editingTextId, removeItem]);
+  }, [selectedId, editingTextId, removeItem, showHelpModal]);
 
   // ── Table dimensions ─────────────────────────────────────────────────────
 
@@ -1084,21 +1100,22 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
   );
 
   const selectedItem = items.find((it) => it.id === selectedId) ?? null;
+  const tablesPanelClass = tablesPanelOpen ? "grid" : "hidden md:block";
 
   return (
-    <div className="h-screen flex flex-col bg-slate-100 font-sans text-slate-900 overflow-hidden">
+    <div className="h-[100dvh] flex flex-col bg-slate-100 font-sans text-slate-900 overflow-hidden">
       {/* Top bar */}
-      <div className="flex items-center gap-4 px-4 py-2 bg-white border-b border-slate-200 shadow-sm shrink-0">
+      <div className="flex flex-wrap items-center gap-2 sm:gap-4 px-3 sm:px-4 py-2 bg-white border-b border-slate-200 shadow-sm shrink-0 overflow-x-auto">
         <button
           onClick={onBack}
-          className="flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors"
+          className="flex items-center gap-1 text-sm font-semibold text-slate-600 hover:text-indigo-600 transition-colors shrink-0"
         >
           <ArrowLeft size={16} /> Back to Planner
         </button>
-        <h1 className="text-lg font-bold text-slate-800">Table Layout</h1>
+        <h1 className="text-base sm:text-lg font-bold text-slate-800 shrink-0">Table Layout</h1>
 
         {layouts.length > 1 && (
-          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 print:hidden">
+          <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 print:hidden overflow-x-auto max-w-full">
             {layouts.map((layout) => (
               <button
                 key={layout.id}
@@ -1119,7 +1136,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         )}
 
         {/* Toolbar */}
-        <div className="flex items-center gap-1 ml-4 bg-slate-100 rounded-lg p-1">
+        <div className="flex items-center gap-1 sm:ml-4 bg-slate-100 rounded-lg p-1 overflow-x-auto max-w-full">
           <button
             onClick={() => {
               setTool("select");
@@ -1186,7 +1203,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
           </button>
         </div>
 
-        <label className="flex items-center gap-2 cursor-pointer select-none">
+        <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
           <div
             role="switch"
             aria-checked={showFullNames}
@@ -1214,7 +1231,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         </label>
 
         {/* Zoom */}
-        <div className="flex items-center gap-1 ml-auto">
+        <div className="flex items-center gap-1 sm:ml-auto shrink-0">
           <button
             onClick={zoomOut}
             className="p-1.5 rounded-md text-slate-500 hover:bg-slate-100"
@@ -1238,7 +1255,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         {selectedItem && (
           <button
             onClick={() => removeItem(selectedId!)}
-            className="flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-700 rounded-md text-xs font-semibold hover:bg-red-200 transition-colors"
+            className="flex items-center gap-1 px-3 py-1.5 bg-red-100 text-red-700 rounded-md text-xs font-semibold hover:bg-red-200 transition-colors shrink-0"
           >
             <Trash2 size={14} /> Delete
           </button>
@@ -1246,17 +1263,44 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
 
         {/* Rotate hint if table selected */}
         {selectedItem && selectedItem.type === "table" && (
-          <span className="flex items-center gap-1 px-3 py-1.5 text-indigo-600 text-xs font-semibold">
+          <span className="flex items-center gap-1 px-3 py-1.5 text-indigo-600 text-xs font-semibold shrink-0">
             <RotateCw size={14} /> Drag handles to rotate or resize
           </span>
         )}
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-56 bg-white border-r border-slate-200 overflow-y-auto shrink-0 p-3">
-          <h2 className="text-sm font-bold text-slate-700 mb-3">Tables</h2>
-          <div className="space-y-2">
+        <div className="w-full md:w-56 max-h-[38dvh] md:max-h-none bg-white border-b md:border-b-0 md:border-r border-slate-200 overflow-y-auto shrink-0 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-bold text-slate-700">Tables</h2>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowHelpModal(true)}
+                className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200"
+              >
+                <HelpCircle size={14} /> Help
+              </button>
+              <button
+                type="button"
+                onClick={() => setTablesPanelOpen((open) => !open)}
+                className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200 md:hidden"
+                aria-expanded={tablesPanelOpen}
+                aria-controls="layout-tables-panel"
+              >
+                {tablesPanelOpen ? "Hide" : "Show"}
+                <ChevronDown
+                  size={14}
+                  className={`transition-transform ${tablesPanelOpen ? "rotate-180" : ""}`}
+                />
+              </button>
+            </div>
+          </div>
+          <div
+            id="layout-tables-panel"
+            className={`${tablesPanelClass} mt-3 grid-cols-1 sm:grid-cols-2 md:block md:space-y-2 gap-2`}
+          >
             {tables.map((table) => {
               const onCanvas = isTableOnCanvas(table.id);
               return (
@@ -1331,46 +1375,12 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
               </p>
             )}
           </div>
-
-          {/* Instructions */}
-          <div className="mt-6 p-3 bg-slate-50 rounded-lg">
-            <h3 className="text-xs font-bold text-slate-600 mb-2">
-              How to use
-            </h3>
-            <ul className="text-[10px] text-slate-500 space-y-1.5">
-              <li>
-                <strong>Select:</strong> Click &amp; drag to move items.
-                Click table to select, drag the handle above to rotate, or
-                drag the side handle to resize width.
-              </li>
-              <li>
-                <strong>Text:</strong> Click on canvas to place text.
-                Double-click to edit.
-              </li>
-              <li>
-                <strong>Line:</strong> Click to set start point, click again
-                to set end point. Great for drawing aisles.
-              </li>
-              <li>
-                <strong>Rect:</strong> Click to set first corner, click again
-                to set opposite corner. Draws a transparent rectangle.
-                Move it with Select tool; delete with Delete key.
-              </li>
-              <li>
-                <strong>Delete:</strong> Select an item, then press
-                Delete/Backspace or use the delete button.
-              </li>
-              <li>
-                <strong>Esc:</strong> Deselect &amp; cancel current action.
-              </li>
-            </ul>
-          </div>
         </div>
 
         {/* Canvas area */}
         <div
           ref={containerRef}
-          className="flex-1 overflow-auto relative"
+          className="flex-1 min-h-0 overflow-auto relative"
           style={{ cursor: { text: "text" as const, line: "crosshair" as const, rect: "crosshair" as const, select: "default" as const }[tool] }}
         >
           {/* Scaled canvas wrapper — the outer div sizes the scroll area */}
@@ -1498,6 +1508,63 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
           </div>
         </div>
       </div>
+      {showHelpModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <button
+            type="button"
+            className="absolute inset-0 h-full w-full"
+            aria-label="Close help"
+            onClick={() => setShowHelpModal(false)}
+          />
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="layout-help-title"
+            className="relative z-10 w-full max-w-md rounded-xl bg-white p-4 shadow-xl"
+          >
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 id="layout-help-title" className="text-base font-bold text-slate-700">
+                How to use
+              </h3>
+              <button
+                type="button"
+                onClick={() => setShowHelpModal(false)}
+                className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close help"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <ul className="space-y-2 text-sm text-slate-600">
+              <li>
+                <strong>Select:</strong> Click &amp; drag to move items.
+                Click table to select, drag the handle above to rotate, or
+                drag the side handle to resize width.
+              </li>
+              <li>
+                <strong>Text:</strong> Click on canvas to place text.
+                Double-click to edit.
+              </li>
+              <li>
+                <strong>Line:</strong> Click to set start point, click again
+                to set end point. Great for drawing aisles.
+              </li>
+              <li>
+                <strong>Rect:</strong> Click to set first corner, click again
+                to set opposite corner. Draws a transparent rectangle.
+                Move it with Select tool; delete with Delete key.
+              </li>
+              <li>
+                <strong>Delete:</strong> Select an item, then press
+                Delete/Backspace or use the delete button.
+              </li>
+              <li>
+                <strong>Esc:</strong> Deselect &amp; cancel current action.
+              </li>
+            </ul>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

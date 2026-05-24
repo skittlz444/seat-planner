@@ -902,11 +902,11 @@ const App = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4 p-4 text-center">
         <div className="text-xl text-red-600">Error: {error}</div>
         <button
           onClick={fetchData}
-          className="ml-4 px-4 py-2 bg-indigo-600 text-white rounded-lg"
+          className="px-4 py-2 bg-indigo-600 text-white rounded-lg"
         >
           Retry
         </button>
@@ -915,10 +915,10 @@ const App = () => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-8 font-sans text-slate-900">
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed top-4 right-4 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg">
+        <div className="fixed top-3 left-3 right-3 sm:left-auto sm:right-4 sm:top-4 z-50 bg-slate-800 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg text-sm sm:text-base">
           {notification}
         </div>
       )}
@@ -927,8 +927,8 @@ const App = () => {
 
       {/* New Layout Modal */}
       {showNewLayoutModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-sm shadow-xl my-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-800">New Layout</h3>
               <button
@@ -978,8 +978,8 @@ const App = () => {
 
       {/* Bulk Add Modal */}
       {showBulkAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-xl my-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-800">Bulk Add Guests</h3>
               <button
@@ -1036,8 +1036,8 @@ const App = () => {
 
       {/* Settings Modal */}
       {showSettingsModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-md shadow-xl my-auto max-h-[calc(100vh-2rem)] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-bold text-slate-800">Settings</h3>
               <button
@@ -1093,9 +1093,9 @@ const App = () => {
         </div>
       )}
 
-      <header className="max-w-7xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="max-w-7xl mx-auto mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">
             Wedding Table Planner
           </h1>
           <p className="text-slate-500 font-medium">
@@ -1105,8 +1105,8 @@ const App = () => {
         </div>
 
         {/* Layout switcher */}
-        <div className="relative">
-          <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+        <div className="relative w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+          <div className="inline-flex min-w-max items-center gap-1 bg-slate-100 rounded-xl p-1">
             {layouts.map((layout) => (
               <div key={layout.id} className="flex items-center">
                 <button
@@ -1140,50 +1140,50 @@ const App = () => {
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto">
           <button
             onClick={() => window.print()}
-            className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 print:hidden"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-3 sm:px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 print:hidden"
           >
             <Printer size={20} /> Print
           </button>
           <button
             onClick={() => setCurrentPage("guestlist")}
-            className="flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 sm:px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
           >
             <ClipboardList size={20} /> Guest List
           </button>
           <button
             onClick={() => setCurrentPage("shuttle")}
-            className="flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white px-3 sm:px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
           >
             <Bus size={20} /> Shuttle
           </button>
           <button
             onClick={() => setCurrentPage("layout")}
-            className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-3 sm:px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
           >
             <LayoutDashboard size={20} /> Table Layout
           </button>
           <button
             onClick={addTable}
-            className="flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-3 sm:px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
           >
             <Plus size={20} /> Add Table
           </button>
           <button
             onClick={() => setShowSettingsModal(true)}
-            className="flex items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 border border-slate-200 print:hidden"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-white hover:bg-slate-100 text-slate-700 px-3 sm:px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95 border border-slate-200 print:hidden"
           >
             <Settings size={20} /> Settings
           </button>
         </div>
       </header>
 
-      <main className="planner-page max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-8">
+      <main className="planner-page max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6 lg:gap-8">
         {/* Sidebar */}
         <section className="lg:col-span-1 space-y-6">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 sticky top-8">
+          <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-200 lg:sticky lg:top-8">
             <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-slate-700">
               <Users size={20} className="text-indigo-600" />
               Guest Manager
@@ -1289,7 +1289,7 @@ const App = () => {
               </div>
 
               <div
-                className="h-[400px] overflow-y-auto bg-slate-50 rounded-xl p-3 border-2 border-dashed border-slate-200 scrollbar-hide"
+                className="h-[240px] sm:h-[320px] lg:h-[400px] overflow-y-auto bg-slate-50 rounded-xl p-3 border-2 border-dashed border-slate-200 scrollbar-hide"
                 onDrop={(e) => onDrop(e, null)}
                 onDragOver={(e) => e.preventDefault()}
                 onDragEnter={(e) => e.preventDefault()}
@@ -1390,7 +1390,7 @@ const App = () => {
         </section>
 
         {/* Tables area */}
-        <section className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+        <section className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 items-start">
           {tables.map((table, tableIndex) => (
             <div
               key={table.id}
@@ -1421,7 +1421,7 @@ const App = () => {
                   }
                 }
               }}
-              className={`bg-white rounded-2xl p-5 shadow-sm border-2 transition-all duration-150 ${
+              className={`bg-white rounded-2xl p-4 sm:p-5 shadow-sm border-2 transition-all duration-150 ${
                 draggedGuestId
                   ? "border-indigo-200 bg-indigo-50/20"
                   : draggedTableId && draggedTableId !== table.id
@@ -1544,7 +1544,7 @@ const App = () => {
                 </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 min-h-[140px] content-start">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 min-h-[140px] content-start">
                 {Array.from({ length: slotCounts[table.id] ?? table.max_seats }, (_, slotIndex) => {
                   const guest = seatMaps[table.id]?.get(slotIndex);
                   const isDropHighlight =
