@@ -1263,7 +1263,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
 
       <div className="flex flex-col md:flex-row flex-1 min-h-0 overflow-hidden">
         {/* Sidebar */}
-        <div className="w-full md:w-56 max-h-[30dvh] md:max-h-none bg-white border-b md:border-b-0 md:border-r border-slate-200 overflow-y-auto shrink-0 p-3">
+        <div className="w-full md:w-56 max-h-[38dvh] md:max-h-none bg-white border-b md:border-b-0 md:border-r border-slate-200 overflow-y-auto shrink-0 p-3">
           <div className="flex items-center justify-between gap-2">
             <h2 className="text-sm font-bold text-slate-700">Tables</h2>
             <div className="flex items-center gap-2">
@@ -1279,6 +1279,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
                 onClick={() => setTablesPanelOpen((open) => !open)}
                 className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-200 md:hidden"
                 aria-expanded={tablesPanelOpen}
+                aria-controls="layout-tables-panel"
               >
                 {tablesPanelOpen ? "Hide" : "Show"}
                 <ChevronDown
@@ -1288,7 +1289,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
               </button>
             </div>
           </div>
-          <div className={`${tablesPanelOpen ? "grid" : "hidden"} mt-3 grid-cols-1 sm:grid-cols-2 md:block md:space-y-2 gap-2`}>
+          <div id="layout-tables-panel" className={`${tablesPanelOpen ? "grid" : "hidden"} mt-3 grid-cols-1 sm:grid-cols-2 md:block md:space-y-2 gap-2`}>
             {tables.map((table) => {
               const onCanvas = isTableOnCanvas(table.id);
               return (
@@ -1497,12 +1498,16 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         </div>
       </div>
       {showHelpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+          onClick={() => setShowHelpModal(false)}
+        >
           <div
             role="dialog"
             aria-modal="true"
             aria-labelledby="layout-help-title"
             className="w-full max-w-md rounded-xl bg-white p-4 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-center justify-between gap-3">
               <h3 id="layout-help-title" className="text-base font-bold text-slate-700">
@@ -1513,6 +1518,7 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
                 onClick={() => setShowHelpModal(false)}
                 className="rounded-md p-1 text-slate-500 hover:bg-slate-100 hover:text-slate-700"
                 aria-label="Close help"
+                autoFocus
               >
                 <X size={18} />
               </button>
