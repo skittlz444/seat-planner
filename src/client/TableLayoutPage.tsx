@@ -569,6 +569,13 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (showHelpModal) {
+        if (e.key === "Escape") {
+          setShowHelpModal(false);
+        }
+        return;
+      }
+
       if (e.key === "Delete" || e.key === "Backspace") {
         // Don't delete if editing text or any input/textarea is focused
         if (editingTextId) return;
@@ -579,10 +586,6 @@ const TableLayoutPage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) =
         }
       }
       if (e.key === "Escape") {
-        if (showHelpModal) {
-          setShowHelpModal(false);
-          return;
-        }
         setSelectedId(null);
         setLineStart(null);
         setLinePreviewEnd(null);
