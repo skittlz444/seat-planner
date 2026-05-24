@@ -310,17 +310,17 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
+    <div className="min-h-screen bg-slate-50 p-3 sm:p-4 md:p-8 font-sans text-slate-900">
       {/* Toast Notification */}
       {notification && (
-        <div className="fixed top-4 right-4 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg">
+        <div className="fixed top-3 left-3 right-3 sm:left-auto sm:right-4 sm:top-4 z-50 bg-slate-800 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg text-sm sm:text-base">
           {notification}
         </div>
       )}
 
       {/* Undo banner */}
       {undoGuestIds && undoGuestIds.length > 0 && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-slate-800 text-white px-6 py-3 rounded-xl shadow-lg flex items-center gap-4">
+        <div className="fixed bottom-4 left-3 right-3 sm:left-1/2 sm:right-auto sm:-translate-x-1/2 z-50 bg-slate-800 text-white px-4 sm:px-6 py-3 rounded-xl shadow-lg flex flex-wrap sm:flex-nowrap items-center justify-between gap-3">
           <span className="text-sm font-medium">All shuttle check-offs were reset</span>
           <button
             onClick={undoReset}
@@ -339,8 +339,8 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
 
       {/* Reset Confirmation Modal */}
       {showResetConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-xl">
+        <div className="fixed inset-0 bg-black/50 flex items-start sm:items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl p-4 sm:p-6 w-full max-w-sm shadow-xl my-auto">
             <h3 className="text-lg font-bold text-slate-800 mb-2">
               Reset All Shuttle Check-Offs?
             </h3>
@@ -366,7 +366,7 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
         </div>
       )}
 
-      <header className="max-w-5xl mx-auto mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <header className="max-w-5xl mx-auto mb-6 md:mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
@@ -375,8 +375,8 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
           >
             <ArrowLeft size={24} />
           </button>
-          <div>
-            <h1 className="text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
               <Bus size={28} /> Shuttle Schedule
             </h1>
             <p className="text-slate-500 font-medium print:hidden">
@@ -386,9 +386,10 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
             </p>
           </div>
         </div>
-        <div className="flex flex-wrap gap-2 print:hidden">
+        <div className="flex flex-wrap gap-2 w-full md:w-auto print:hidden">
           {layouts.length > 1 && (
-            <div className="flex items-center gap-1 bg-slate-100 rounded-xl p-1">
+            <div className="w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0">
+            <div className="inline-flex min-w-max items-center gap-1 bg-slate-100 rounded-xl p-1">
               {layouts.map((layout) => (
                 <button
                   key={layout.id}
@@ -406,17 +407,18 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
                 </button>
               ))}
             </div>
+            </div>
           )}
           <button
             onClick={() => window.print()}
-            className="flex items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-slate-700 hover:bg-slate-800 text-white px-4 sm:px-6 py-3 rounded-xl font-semibold transition-all shadow-md active:scale-95"
           >
             <Printer size={20} /> Print
           </button>
           <button
             onClick={() => setShowResetConfirm(true)}
             disabled={checkedCount === 0}
-            className="flex items-center gap-2 bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+            className="flex flex-1 sm:flex-none items-center justify-center gap-2 bg-red-50 text-red-600 px-4 py-2.5 rounded-xl font-semibold text-sm hover:bg-red-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
           >
             <RotateCcw size={16} /> Reset
           </button>
@@ -457,7 +459,7 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
               key={time}
               className="shuttle-group-print bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden"
             >
-              <div className="bg-indigo-50 border-b border-indigo-100 px-6 py-4 flex items-center justify-between">
+              <div className="bg-indigo-50 border-b border-indigo-100 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
                   <Clock size={20} className="text-indigo-600" />
                   <h2 className="text-xl font-bold text-indigo-900">
@@ -470,14 +472,14 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
                   </span>
                 </div>
               </div>
-              <div className="p-4">
+              <div className="p-3 sm:p-4 overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
                       <th className="pb-2 pl-2 w-10"></th>
                       <th className="pb-2">Guest</th>
-                      <th className="pb-2">Group</th>
-                      <th className="pb-2">Table</th>
+                      <th className="hidden sm:table-cell pb-2">Group</th>
+                      <th className="hidden sm:table-cell pb-2">Table</th>
                       <th className="pb-2 pr-2 print:hidden">Actions</th>
                     </tr>
                   </thead>
@@ -520,15 +522,15 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
                               </span>
                             </div>
                           </td>
-                          <td className="py-2 text-sm text-slate-500">
+                          <td className="hidden sm:table-cell py-2 text-sm text-slate-500">
                             {getColorGroupName(guest.color)}
                           </td>
-                          <td className="py-2 text-sm text-slate-500">
+                          <td className="hidden sm:table-cell py-2 text-sm text-slate-500">
                             {getTableName(guest.table_id)}
                           </td>
                           <td className="py-2 pr-2 print:hidden" onClick={(e) => e.stopPropagation()}>
                             {editingGuestId === guest.id ? (
-                              <div className="flex items-center gap-1">
+                              <div className="flex flex-wrap items-center gap-1 justify-end">
                                 <input
                                   type="text"
                                   value={tempShuttleTime}
@@ -583,7 +585,7 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
         {/* Guests without shuttle time */}
         {unassignedGuests.length > 0 && (
           <section className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden print:hidden">
-            <div className="bg-slate-50 border-b border-slate-100 px-6 py-4 flex items-center justify-between">
+            <div className="bg-slate-50 border-b border-slate-100 px-4 sm:px-6 py-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-3">
                 <Bus size={20} className="text-slate-400" />
                 <h2 className="text-xl font-bold text-slate-500">
@@ -595,13 +597,13 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
                 {unassignedGuests.length !== 1 ? "s" : ""}
               </span>
             </div>
-            <div className="p-4">
+            <div className="p-3 sm:p-4 overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="text-left text-xs font-semibold text-slate-400 uppercase tracking-wider">
                     <th className="pb-2 pl-2">Guest</th>
-                    <th className="pb-2">Group</th>
-                    <th className="pb-2">Table</th>
+                    <th className="hidden sm:table-cell pb-2">Group</th>
+                    <th className="hidden sm:table-cell pb-2">Table</th>
                     <th className="pb-2 pr-2 print:hidden">Actions</th>
                   </tr>
                 </thead>
@@ -624,15 +626,15 @@ const ShuttlePage = ({ layoutId, layouts, onLayoutChange, onBack }: Props) => {
                             </span>
                           </div>
                         </td>
-                        <td className="py-2 text-sm text-slate-500">
+                        <td className="hidden sm:table-cell py-2 text-sm text-slate-500">
                           {getColorGroupName(guest.color)}
                         </td>
-                        <td className="py-2 text-sm text-slate-500">
+                        <td className="hidden sm:table-cell py-2 text-sm text-slate-500">
                           {getTableName(guest.table_id)}
                         </td>
                         <td className="py-2 pr-2 print:hidden">
                           {editingGuestId === guest.id ? (
-                            <div className="flex items-center gap-1">
+                            <div className="flex flex-wrap items-center gap-1 justify-end">
                               <input
                                 type="text"
                                 value={tempShuttleTime}
